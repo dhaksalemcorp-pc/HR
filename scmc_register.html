@@ -694,7 +694,7 @@ const INTERNAL_DESIGNATIONS = ["DBC Worker"];
 // IMPORTANT: replace this with your own deployment URL after
 // following the deployment steps (Deploy > New deployment > Web app).
 // ---------------------------------------------------------------
-const API_BASE = "PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
+const API_BASE = "https://script.google.com/macros/s/AKfycbyILZi_PXWy35BwUoMUxT_4lsE8xsAHkKj3ptH02yd9A1pa_yKJqqEhckmwGE3crFNH/exec";
 async function apiCall(action, payload){
   if(!API_BASE || API_BASE.indexOf('PASTE_YOUR')===0){
     console.warn('API_BASE not configured — running in local-only demo mode. Action not persisted:', action);
