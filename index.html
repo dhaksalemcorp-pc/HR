@@ -827,6 +827,7 @@ let dashboardTab = 'designation'; // which single dashboard view is showing: des
 
 let seq = {emp:8, pst:9, chg:2, sch:2};
 const pad = (n)=> String(n).padStart(4,"0");
+function suggestNextEmpId(){ return "SCM-"+pad(seq.emp+1); }
 
 function currentPosting(empId){ return postings.find(p=>p.empId===empId && !p.end) || null; }
 function activeCharges(empId){ return charges.filter(c=>c.empId===empId && !c.end); }
@@ -1339,6 +1340,7 @@ document.getElementById('btnAddEmployee').addEventListener('click', ()=>{
   openModal(`
     <h3>Add employee</h3>
     <div class="hint">Creates the person record plus their first posting.</div>
+    <div class="field"><label>Emp ID</label><input type="text" id="f_empid" value="${suggestNextEmpId()}"></div>
     ${photoFieldHtml(null)}
     <div class="field"><label>Full name</label><input type="text" id="f_name"></div>
     <div class="field"><label>Category</label><select id="f_cat">${CATEGORIES.map(c=>`<option>${c}</option>`).join('')}</select></div>
@@ -1355,16 +1357,23 @@ document.getElementById('btnAddEmployee').addEventListener('click', ()=>{
   document.getElementById('saveEmployee').addEventListener('click', async ()=>{
     const name=document.getElementById('f_name').value.trim(); const doj=document.getElementById('f_doj').value;
     if(!name||!doj){ toast('Name and date of joining are required.'); return; }
+    const enteredId = document.getElementById('f_empid').value.trim();
+    if(!enteredId){ toast('Emp ID is required.'); return; }
+    if(employees.some(e=>e.id===enteredId)){ toast(`Emp ID "${enteredId}" is already in use — choose a different one.`); return; }
     const dep = readDeputationFromForm();
     const phone = document.getElementById('f_phone').value;
     const category = document.getElementById('f_cat').value;
     const photo = currentPhotoValue();
     let id;
     if(backendConfigured()){
-      const res = await apiCall('addEmployee', {name,dob:"",doj,native:"",phone,email:"",category,photo:photo||'',depType:dep?dep.type:'',depOrg:dep?dep.org:''});
-      if(!res.ok){ toast('Could not save to server — try again.'); return; }
+      const res = await apiCall('addEmployee', {id:enteredId, name,dob:"",doj,native:"",phone,email:"",category,photo:photo||'',depType:dep?dep.type:'',depOrg:dep?dep.org:''});
+      if(!res.ok){ toast(res.error || 'Could not save to server — try again.'); return; }
       id = res.data.id;
-    } else { seq.emp++; id = "SCM-"+pad(seq.emp); }
+    } else {
+      id = enteredId;
+      const m = /^SCM-(\d+)$/.exec(id);
+      if(m) seq.emp = Math.max(seq.emp, parseInt(m[1],10));
+    }
     employees.push({id,name,dob:"",doj,native:"",phone,email:"",category,photo,deputation:dep});
     const designation = document.getElementById('f_desig').value||'Unassigned';
     const zone = lockZone?currentUser.zone:document.getElementById('f_zone').value;
@@ -1384,7 +1393,8 @@ document.getElementById('btnEditEmployee').addEventListener('click', ()=>{
   const e = employees.find(x=>x.id===drawerEmpId);
   openModal(`
     <h3>Edit employee details</h3>
-    <div class="hint">Zone/designation changes go through "Record transfer" instead, so history stays intact.</div>
+    <div class="hint">Zone/designation changes go through "Record transfer" instead, so history stays intact. Changing the Emp ID updates every linked posting, charge and scheme automatically.</div>
+    <div class="field"><label>Emp ID</label><input type="text" id="e_empid" value="${e.id}"></div>
     ${photoFieldHtml(e.photo)}
     <div class="field"><label>Full name</label><input type="text" id="e_name" value="${e.name}"></div>
     <div class="field"><label>Category</label><select id="e_cat">${CATEGORIES.map(c=>`<option ${c===e.category?'selected':''}>${c}</option>`).join('')}</select></div>
@@ -1398,13 +1408,31 @@ document.getElementById('btnEditEmployee').addEventListener('click', ()=>{
   wirePhotoInput();
   wireDeputationField();
   document.getElementById('saveEditEmployee').addEventListener('click', ()=>{
+    const oldId = e.id;
+    const newId = document.getElementById('e_empid').value.trim();
+    if(!newId){ toast('Emp ID is required.'); return; }
+    if(newId!==oldId && employees.some(x=>x.id===newId)){ toast(`Emp ID "${newId}" is already in use — choose a different one.`); return; }
+
     e.name=document.getElementById('e_name').value.trim()||e.name;
     e.category=document.getElementById('e_cat').value; e.dob=document.getElementById('e_dob').value;
     e.native=document.getElementById('e_native').value; e.phone=document.getElementById('e_phone').value; e.email=document.getElementById('e_email').value;
     e.deputation = readDeputationFromForm();
     const newPhoto = currentPhotoValue(); if(newPhoto) e.photo = newPhoto;
-    if(backendConfigured()) persist('updateEmployee', {id:e.id, fields:{name:e.name, category:e.category, dob:e.dob, native:e.native, phone:e.phone, email:e.email, photo:e.photo||'', depType:e.deputation?e.deputation.type:'', depOrg:e.deputation?e.deputation.org:''}});
-    closeModal(); openDrawer(e.id); renderDirectory(); toast('Employee details updated.');
+
+    const idChanged = newId !== oldId;
+    if(idChanged){
+      e.id = newId;
+      postings.filter(p=>p.empId===oldId).forEach(p=>p.empId=newId);
+      charges.filter(c=>c.empId===oldId).forEach(c=>c.empId=newId);
+      schemes.filter(s=>s.empId===oldId).forEach(s=>s.empId=newId);
+      drawerEmpId = newId;
+    }
+
+    if(backendConfigured()){
+      persist('updateEmployee', {id:oldId, fields:{id:newId, name:e.name, category:e.category, dob:e.dob, native:e.native, phone:e.phone, email:e.email, photo:e.photo||'', depType:e.deputation?e.deputation.type:'', depOrg:e.deputation?e.deputation.org:''}});
+      if(idChanged) persist('renameEmpIdReferences', {oldId, newId});
+    }
+    closeModal(); openDrawer(e.id); renderDirectory(); toast(idChanged ? `Employee details updated and Emp ID changed to ${newId}.` : 'Employee details updated.');
   });
 });
 
@@ -1843,7 +1871,9 @@ document.getElementById('btnConfirmImport').addEventListener('click', async ()=>
       }
       updated++;
     } else {
-      seq.emp++; const id = "SCM-"+pad(seq.emp);
+      const id = (r.empId && r.empId.trim()) ? r.empId.trim() : "SCM-"+pad(seq.emp+1);
+      seq.emp++;
+      const m = /^SCM-(\d+)$/.exec(id); if(m) seq.emp = Math.max(seq.emp, parseInt(m[1],10));
       employees.push({id, name:r.name, dob:"", doj:r.doj, native:"", phone:r.phone, email:"", category:r.category, photo:null});
       seq.pst++;
       postings.push({id:"PST-"+pad(seq.pst), empId:id, designation:r.designation, zone:r.zone, section:r.section||SECTIONS[0], start:r.doj, end:null});
