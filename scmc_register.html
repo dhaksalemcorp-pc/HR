@@ -1,0 +1,1937 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Salem City Municipal Corporation — Employee Register</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+  :root{
+    --navy-1:#0B1C33; --navy-2:#132B4C; --navy-3:#0E2140;
+    --blue:#2F5FE0; --blue-dark:#1E4BC7;
+    --bg:#EFF2F7; --surface:#FFFFFF; --line:#E3E7EE;
+    --ink:#152036; --ink-soft:#6B7688; --ink-faint:#98A2B3;
+    --green:#12A150; --green-soft:#E4F8ED;
+    --red:#E5484D; --red-soft:#FBE7E8;
+    --orange:#F5A524; --orange-soft:#FEF3DD;
+    --cyan:#0EA5C4; --cyan-soft:#E0F6FA;
+    --purple:#7C5CFC; --purple-soft:#EFEBFF;
+    --radius:10px; --radius-sm:6px;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;}
+  h1,h2,h3{margin:0; color:var(--ink); font-family:'Inter',sans-serif;}
+  .mono{font-family:'Inter',monospace; font-variant-numeric:tabular-nums;}
+  button{font-family:'Inter',sans-serif;}
+
+  /* ================= LOGIN ================= */
+  #loginScreen{
+    position:fixed; inset:0; z-index:100;
+    display:flex; align-items:center; justify-content:center;
+    background:
+      radial-gradient(circle at 22% 15%, #1B3A66 0%, transparent 45%),
+      radial-gradient(circle at 12% 92%, #12294A 0%, transparent 40%),
+      linear-gradient(160deg, #0A192E 0%, #0E2545 100%);
+  }
+  .login-card{
+    width:min(400px,90vw); background:rgba(19,43,76,0.72); backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,0.08); border-radius:16px;
+    padding:38px 34px 30px; box-shadow:0 30px 70px rgba(0,0,0,0.45);
+    text-align:center;
+  }
+  .login-seal{
+    width:72px; height:72px; border-radius:50%; margin:0 auto 16px;
+    background:radial-gradient(circle, #F4EDE0 0%, #E7DCC4 100%);
+    border:2px solid #D4B96B; display:flex; align-items:center; justify-content:center;
+    font-family:'Inter',sans-serif; font-weight:800; font-size:26px; color:#8A6A1E;
+    box-shadow:0 0 0 4px rgba(212,185,107,0.15);
+  }
+  .login-card h1{font-size:20px; font-weight:700; color:#F3F6FB; line-height:1.3;}
+  .login-card .sub{font-size:12.5px; color:#93A3BE; margin-top:5px; margin-bottom:26px;}
+  .login-card .field{margin-bottom:15px; text-align:left;}
+  .login-card .field label{display:block; font-size:10.5px; font-weight:700; letter-spacing:0.06em; color:#8DA0BD; margin-bottom:6px; text-transform:uppercase;}
+  .login-card input{
+    width:100%; padding:11px 12px; font-size:13.5px; border-radius:8px;
+    background:#1B3A63; border:1px solid rgba(255,255,255,0.18); color:#F3F6FB;
+  }
+  .login-card input::placeholder{color:#8194B0;}
+  .login-card input:focus{outline:2px solid var(--blue); outline-offset:1px; background:#20406E;}
+  /* Chrome/Edge force their own light autofill background + dark text once a field is
+     autofilled or matches a saved credential — this overrides it back to our dark theme
+     so typed/autofilled text stays legible instead of dark-on-dark. */
+  .login-card input:-webkit-autofill,
+  .login-card input:-webkit-autofill:hover,
+  .login-card input:-webkit-autofill:focus,
+  .login-card input:-webkit-autofill:active{
+    -webkit-box-shadow: 0 0 0 1000px #1B3A63 inset;
+    -webkit-text-fill-color:#F3F6FB;
+    caret-color:#F3F6FB;
+    transition:background-color 9999s ease-in-out 0s;
+  }
+  .login-row{display:flex; justify-content:space-between; align-items:center; margin:2px 0 18px; font-size:12px; color:#9BACC6;}
+  .login-row a{color:#5EC7EC; text-decoration:none;}
+  .login-card .btn-signin{
+    width:100%; padding:12px; border-radius:9px; border:none; cursor:pointer;
+    background:linear-gradient(180deg, #3E6BF0, #2A50D8); color:#fff; font-weight:700; font-size:14px;
+    box-shadow:0 10px 24px rgba(47,95,224,0.4);
+  }
+  .login-card .btn-signin:hover{background:linear-gradient(180deg, #4a76f5, #2f57e0);}
+  .login-error{ font-size:12.5px; color:#FFD0D2; background:rgba(229,72,77,0.18); border:1px solid rgba(229,72,77,0.35); padding:8px 10px; border-radius:8px; margin-bottom:14px; display:none; }
+  .login-demo{ margin-top:20px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.09); font-size:11px; color:#8095B3; line-height:1.8; text-align:left; }
+  .login-demo b{color:#D7E2F5; font-weight:600;}
+  .login-foot{margin-top:18px; font-size:10.5px; color:#5D6E89;}
+
+  /* ================= APP SHELL ================= */
+  .app-shell{display:none; height:100vh; overflow:hidden; flex-direction:row;}
+  .app-shell.on{display:flex;}
+
+  .sidebar{ width:250px; background:linear-gradient(180deg, var(--navy-1), var(--navy-2)); color:#B9C6DC; display:flex; flex-direction:column; flex-shrink:0; position:relative; transition:width 0.15s ease; }
+  .sidebar.collapsed{width:72px;}
+  .sidebar-head{ padding:18px 18px 16px; display:flex; align-items:center; gap:11px; white-space:nowrap; overflow:hidden; }
+  .sidebar-head .mark{ width:36px; height:36px; border-radius:9px; background:linear-gradient(135deg,#3E6BF0,#7C5CFC); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-weight:800; color:#fff; font-size:15px; }
+  .sidebar-head .org-name{font-size:13.5px; font-weight:700; color:#F2F5FA; line-height:1.25;}
+  .sidebar-head .org-sub{font-size:10px; letter-spacing:0.06em; color:#7E90AC; text-transform:uppercase; font-weight:600;}
+  .sidebar.collapsed .org-name, .sidebar.collapsed .org-sub{display:none;}
+
+  .profile-card{ margin:0 12px 14px; padding:11px 12px; background:rgba(255,255,255,0.05); border-radius:10px; display:flex; align-items:center; gap:10px; }
+  .profile-card .av{ width:36px; height:36px; border-radius:50%; background:var(--blue); color:#fff; font-weight:700; font-size:13px; display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; }
+  .profile-card .av img{width:100%; height:100%; object-fit:cover;}
+  .profile-card .who{overflow:hidden;}
+  .profile-card .who b{display:block; font-size:12.5px; color:#F2F5FA; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .profile-card .who small{font-size:10.5px; color:#8DA0BD;}
+  .sidebar.collapsed .profile-card .who{display:none;}
+  .sidebar.collapsed .profile-card{justify-content:center; padding:11px 0;}
+
+  .nav-group-label{ font-size:10px; font-weight:700; letter-spacing:0.09em; text-transform:uppercase; color:#5E7093; padding:14px 20px 6px; }
+  .sidebar.collapsed .nav-group-label{padding:14px 0 6px; text-align:center; font-size:0;}
+  .sidebar-nav{flex:1; overflow-y:auto; overflow-x:hidden; padding-bottom:10px;}
+  .side-btn{ display:flex; align-items:center; gap:12px; width:calc(100% - 20px); margin:1px 10px; background:none; border:none; color:#AEBCD4; padding:9px 10px; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; white-space:nowrap; overflow:hidden; text-align:left; }
+  .side-btn svg{flex-shrink:0; width:17px; height:17px;}
+  .side-btn:hover{background:rgba(255,255,255,0.06); color:#fff;}
+  .side-btn.active{background:var(--blue); color:#fff; font-weight:600; box-shadow:0 4px 14px rgba(47,95,224,0.4);}
+  .sidebar.collapsed .side-btn span{display:none;}
+  .sidebar.collapsed .side-btn{justify-content:center; width:44px; margin:1px auto;}
+
+  .sidebar-foot{padding:10px; border-top:1px solid rgba(255,255,255,0.07);}
+  .logout-btn{ width:100%; background:none; border:none; color:#AEBCD4; padding:9px 10px; border-radius:8px; cursor:pointer; font-size:12.5px; display:flex; align-items:center; gap:10px; }
+  .logout-btn:hover{background:rgba(255,255,255,0.06); color:#fff;}
+  .logout-btn svg{flex-shrink:0; width:16px; height:16px;}
+  .sidebar.collapsed .logout-btn span{display:none;}
+  .sidebar.collapsed .logout-btn{justify-content:center;}
+
+  .collapse-chip{
+    position:absolute; top:64px; right:-12px; width:24px; height:24px; border-radius:50%;
+    background:var(--orange); border:2px solid var(--bg); color:#4A3200; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.25); z-index:5;
+  }
+  .collapse-chip svg{width:13px; height:13px; transition:transform 0.15s;}
+  .sidebar.collapsed .collapse-chip svg{transform:rotate(180deg);}
+
+  /* ================= MAIN ================= */
+  .main-col{flex:1; display:flex; flex-direction:column; min-width:0;}
+  .topbar{ padding:16px 28px; border-bottom:1px solid var(--line); background:var(--surface); display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
+  .topbar h2{font-size:19px; font-weight:700;}
+  .topbar .subtitle{font-size:11.5px; color:var(--ink-faint); font-weight:500; margin-top:1px;}
+  .topbar .right{display:flex; align-items:center; gap:12px;}
+  .scope-pill{ font-size:11.5px; font-weight:700; padding:5px 12px; border-radius:20px; background:var(--purple-soft); color:var(--purple); }
+  .icon-btn{ width:34px; height:34px; border-radius:8px; border:1px solid var(--line); background:var(--surface); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--ink-soft); }
+  .icon-btn:hover{background:var(--bg);}
+  .content{flex:1; overflow-y:auto; padding:24px 28px 60px;}
+  .panel{display:none;}
+  .panel.active{display:block;}
+  .row-between{display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:16px;}
+
+  input[type=text], input[type=date], input[type=password], input[type=file], select, textarea{
+    font-family:'Inter',sans-serif; font-size:13.5px; padding:9px 11px;
+    border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--ink);
+  }
+  input:focus, select:focus, textarea:focus, button:focus-visible{ outline:2px solid var(--blue); outline-offset:1px; }
+  .search-bar{display:flex; gap:8px; flex-wrap:wrap;}
+  .search-bar input[type=text]{width:260px;}
+
+  .btn{ font-size:13px; font-weight:600; padding:9px 16px; border-radius:8px; border:none; background:var(--blue); color:#fff; cursor:pointer; }
+  .btn:hover{background:var(--blue-dark);}
+  .btn.ghost{background:var(--surface); color:var(--ink); border:1px solid var(--line);}
+  .btn.ghost:hover{background:var(--bg);}
+  .btn.danger{background:var(--red);}
+  .btn.danger:hover{background:#cf3439;}
+  .btn.small{padding:5px 11px; font-size:12px;}
+  .btn:disabled{opacity:0.4; cursor:not-allowed;}
+
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:0 1px 2px rgba(16,24,40,0.04);}
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  thead th{ text-align:left; font-size:11px; font-weight:700; color:var(--ink-faint); padding:11px 14px; border-bottom:1px solid var(--line); white-space:nowrap; text-transform:uppercase; letter-spacing:0.03em; }
+  tbody td{ padding:10px 14px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#F7F9FC;}
+  .rowclick{cursor:pointer;}
+  .row-actions{display:flex; gap:6px;}
+
+  .avatar{ width:32px; height:32px; border-radius:50%; object-fit:cover; flex-shrink:0; }
+  .avatar-fallback{ width:32px; height:32px; border-radius:50%; background:var(--blue); color:#fff; font-size:11.5px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .name-cell{display:flex; align-items:center; gap:10px;}
+
+  .pill{ display:inline-flex; align-items:center; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; }
+  .pill.green{background:var(--green-soft); color:var(--green);}
+  .pill.red{background:var(--red-soft); color:var(--red);}
+  .pill.orange{background:var(--orange-soft); color:#9A6B00;}
+  .pill.blue{background:#E7EEFE; color:var(--blue);}
+  .pill.gray{background:#EEF0F4; color:var(--ink-soft);}
+
+  .empty{ padding:40px 20px; text-align:center; color:var(--ink-faint); }
+
+  /* ---- KPI cards ---- */
+  .stat-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(155px,1fr)); gap:14px; margin-bottom:22px;}
+  .stat-card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px; border-left:4px solid var(--blue); box-shadow:0 1px 2px rgba(16,24,40,0.04); transition:transform 0.15s ease, box-shadow 0.15s ease; }
+  .stat-card:hover{ transform:translateY(-2px); box-shadow:0 6px 16px rgba(16,24,40,0.09); }
+  .stat-card .icn{ width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-bottom:10px; }
+  .stat-card .icn svg{width:17px; height:17px;}
+  .stat-card .num{font-size:26px; font-weight:800; color:var(--ink);}
+  .stat-card .lbl{font-size:11.5px; color:var(--ink-soft); margin-top:2px; font-weight:500;}
+
+  /* ---- Dashboard hero + bento layout ---- */
+  .hero-strip{ display:flex; align-items:flex-end; gap:36px; flex-wrap:wrap; padding:6px 0 26px; border-bottom:1px solid var(--line); margin-bottom:24px; }
+  .hero-main{display:flex; flex-direction:column;}
+  .hero-number{font-size:54px; font-weight:800; line-height:1; color:var(--ink); letter-spacing:-0.02em;}
+  .hero-label{font-size:13px; color:var(--ink-soft); font-weight:600; margin-top:6px;}
+  .hero-secondary{display:flex; gap:30px; flex-wrap:wrap; padding-bottom:7px;}
+  .hero-stat{display:flex; flex-direction:column; gap:3px;}
+  .hero-stat .num{font-size:23px; font-weight:700; color:var(--ink);}
+  .hero-stat .lbl{font-size:11.5px; color:var(--ink-faint); font-weight:600;}
+
+  .bento-grid{display:grid; grid-template-columns:repeat(12,1fr); gap:18px;}
+  @media (max-width:900px){ .bento-grid > div{grid-column:span 12 !important;} }
+  .primary-card{border-top:3px solid var(--blue);}
+
+  .leaderboard-row{display:flex; align-items:center; gap:12px; padding:9px 0; border-bottom:1px solid var(--line);}
+  .leaderboard-row:last-child{border-bottom:none;}
+  .leaderboard-rank{width:22px; height:22px; border-radius:50%; background:var(--bg); color:var(--ink-soft); font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .leaderboard-rank.top{background:var(--blue); color:#fff;}
+  .leaderboard-name{flex:1; font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .leaderboard-count{font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--ink-soft); flex-shrink:0;}
+
+  .section-tile-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(112px,1fr)); gap:10px;}
+  .section-tile{background:var(--bg); border-radius:8px; padding:13px 10px; text-align:center;}
+  .section-tile .num{font-size:21px; font-weight:800; color:var(--ink);}
+  .section-tile .lbl{font-size:10.5px; color:var(--ink-soft); font-weight:600; margin-top:4px; line-height:1.3;}
+
+  .dash-grid{display:grid; grid-template-columns:1.3fr 1fr; gap:18px;}
+  @media (max-width:900px){ .dash-grid{grid-template-columns:1fr;} }
+  .dash-card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:20px; box-shadow:0 1px 2px rgba(16,24,40,0.04); }
+  .dash-card h3{font-size:14.5px; font-weight:700; margin-bottom:4px;}
+  .dash-card .hint{font-size:11.5px; color:var(--ink-faint); margin-bottom:14px;}
+
+  .zone-chart{display:flex; align-items:flex-end; gap:14px; height:190px; padding:6px 4px 0;}
+  .zone-bar-col{flex:1; display:flex; flex-direction:column; align-items:center; height:100%; cursor:pointer; border-radius:8px; padding-top:4px;}
+  .zone-bar-col:hover{background:#F3F6FD;}
+  .zone-bar-col.selected{background:#E7EEFE;}
+  .zone-bar-fig{width:100%; display:flex; flex-direction:column-reverse; justify-content:flex-start; align-items:center; flex:1;}
+  .zone-bar-fig .seg{width:60%; max-width:44px; border-radius:4px 4px 0 0;}
+  .zone-bar-count{font-size:12px; font-weight:700; color:var(--ink); margin-bottom:4px;}
+  .zone-bar-label{font-size:10.5px; color:var(--ink-soft); margin-top:8px; text-align:center; line-height:1.3; font-weight:600;}
+  .zone-legend{display:flex; gap:16px; margin-top:10px; font-size:11.5px; color:var(--ink-soft); justify-content:center;}
+  .zone-legend span{display:inline-flex; align-items:center; gap:6px;}
+  .zone-legend i{width:9px; height:9px; border-radius:2px; display:inline-block;}
+
+  .breakdown-row{padding:11px 0; border-bottom:1px solid var(--line); transition:background 0.12s ease;}
+  .zone-row:hover{background:#F7F9FC;}
+  .breakdown-row:last-child{border-bottom:none;}
+  .breakdown-top{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;}
+  .breakdown-top b{font-size:12.5px; font-weight:700;}
+  .breakdown-track{background:var(--bg); border-radius:3px; height:6px; overflow:hidden; margin-bottom:7px;}
+  .breakdown-fill{background:var(--blue); height:100%;}
+  .breakdown-pills{display:flex; gap:6px; flex-wrap:wrap;}
+
+  .drill-banner{ display:flex; justify-content:space-between; align-items:center; background:#E7EEFE; border:1px solid #C9D9FB; border-radius:var(--radius); padding:12px 16px; margin-bottom:18px; }
+  .drill-banner b{color:var(--blue-dark);}
+
+  .scope-chips{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px;}
+  .scope-chip{
+    font-size:12.5px; font-weight:600; padding:7px 15px; border-radius:20px;
+    border:1px solid var(--line); background:var(--surface); color:var(--ink-soft); cursor:pointer;
+  }
+  .scope-chip:hover{border-color:var(--blue);}
+  .scope-chip.active{background:var(--blue); border-color:var(--blue); color:#fff;}
+  .dash-summary{font-size:13.5px; color:var(--ink-soft); font-weight:500; margin-bottom:16px;}
+  .dashboard-split{display:grid; grid-template-columns:250px 1fr; gap:18px; align-items:start;}
+  @media (max-width:800px){ .dashboard-split{grid-template-columns:1fr;} }
+  .zone-panel .breakdown-row{padding:7px 0; cursor:pointer; border-radius:6px;}
+  .zone-panel .breakdown-row:hover{background:#F7F9FC;}
+  .zone-panel .breakdown-row.selected{background:#E7EEFE; margin:0 -8px; padding-left:8px; padding-right:8px; width:calc(100% + 16px);}
+  .zone-panel .breakdown-top b{font-size:12.5px;}
+  .zone-grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .zone-grid2 .g2-cell{background:var(--bg); border-radius:8px; padding:10px 11px; cursor:pointer; transition:background 0.12s ease;}
+  .zone-grid2 .g2-cell:hover{background:#E9EDF3;}
+  .zone-grid2 .g2-cell.selected{background:var(--blue);}
+  .zone-grid2 .g2-cell.selected .g2-name, .zone-grid2 .g2-cell.selected .g2-num{color:#fff;}
+  .zone-grid2 .g2-cell.selected .g2-track{background:rgba(255,255,255,0.3);}
+  .zone-grid2 .g2-cell.selected .g2-fill{background:#fff;}
+  .zone-grid2 .g2-name{font-size:10.5px; font-weight:600; margin-bottom:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--ink-soft);}
+  .zone-grid2 .g2-num{font-size:17px; font-weight:800; margin-bottom:6px; color:var(--ink);}
+  .zone-grid2 .g2-track{height:4px; background:var(--line); border-radius:2px; overflow:hidden;}
+  .zone-grid2 .g2-fill{height:100%; background:var(--blue);}
+  .zone-grid2 .g2-overall{grid-column:1/3; background:#E7EEFE;}
+  .zone-grid2 .g2-overall .g2-name{color:var(--blue);}
+  .zone-grid2 .g2-overall .g2-num{font-size:21px;}
+  .zone-grid2 .g2-overall.selected{background:var(--blue);}
+  .zone-grid2 .g2-overall.selected .g2-name{color:#fff;}
+  tr.section-divider td{
+    background:var(--bg); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;
+    color:var(--ink-soft); padding:8px 14px; border-bottom:1px solid var(--line);
+  }
+  .list-section-header{
+    font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;
+    color:var(--ink-soft); background:var(--bg); padding:7px 12px; margin:16px -20px 8px;
+  }
+  .list-section-header:first-child{margin-top:0;}
+  .waffle-block{margin-bottom:18px;}
+  .waffle-block:last-child{margin-bottom:0;}
+  .waffle-head{display:flex; justify-content:space-between; align-items:baseline; font-size:13px; margin-bottom:8px; gap:10px;}
+  .waffle-head b{font-weight:600;}
+  .waffle-head span{font-size:11.5px; color:var(--ink-faint); white-space:nowrap;}
+  .waffle-grid{display:grid; grid-template-columns:repeat(10,1fr); gap:3px; max-width:230px;}
+  .waffle-cell{aspect-ratio:1; border-radius:2px; background:var(--bg);}
+  .waffle-cell.on{background:var(--blue);}
+
+  /* ---- Drawer / Modal ---- */
+  .overlay{ position:fixed; inset:0; background:rgba(11,28,51,0.35); display:none; align-items:flex-start; justify-content:flex-end; z-index:20; }
+  .overlay.open{display:flex;}
+  .drawer{ width:min(480px,92vw); height:100%; background:var(--surface); box-shadow:-8px 0 24px rgba(0,0,0,0.12); overflow-y:auto; padding:26px 26px 40px; }
+  .drawer .close{float:right; background:none; border:none; font-size:20px; cursor:pointer; color:var(--ink-faint);}
+  .drawer-head{display:flex; gap:14px; align-items:center; margin-bottom:4px;}
+  .drawer-head .avatar-fallback, .drawer-head .avatar{width:58px; height:58px; font-size:19px;}
+  .drawer h2{font-size:19px; font-weight:700;}
+  .drawer .id{color:var(--blue); font-size:12.5px; font-weight:600;}
+  .field-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; margin:20px 0 18px;}
+  .field-grid div label{display:block; font-size:11px; color:var(--ink-faint); margin-bottom:2px; font-weight:600;}
+  .field-grid div span{font-size:13.5px;}
+  .drawer-actions{display:flex; gap:8px; margin-bottom:6px;}
+  .section-title{ font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-faint); border-top:1px solid var(--line); padding-top:14px; margin:18px 0 10px; }
+  .history-row{ display:flex; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:1px solid var(--line); font-size:13px; }
+  .history-row:last-child{border-bottom:none;}
+
+  .modal-overlay{ position:fixed; inset:0; background:rgba(11,28,51,0.4); display:none; align-items:center; justify-content:center; z-index:30; }
+  .modal-overlay.open{display:flex;}
+  .modal{ width:min(460px,92vw); max-height:88vh; overflow-y:auto; background:var(--surface); border-radius:14px; padding:24px; box-shadow:0 20px 50px rgba(0,0,0,0.25); }
+  .modal.wide{width:min(760px,94vw);}
+  .modal h3{font-size:16.5px; font-weight:700; margin-bottom:4px;}
+  .modal .hint{font-size:12.5px; color:var(--ink-faint); margin-bottom:16px;}
+  .field{margin-bottom:12px;}
+  .field label{display:block; font-size:12px; font-weight:600; margin-bottom:4px; color:var(--ink-soft);}
+  .field input, .field select{width:100%;}
+  .modal-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:18px;}
+
+  .photo-row{display:flex; align-items:center; gap:14px; margin-bottom:14px;}
+  .photo-row .avatar, .photo-row .avatar-fallback{width:52px; height:52px; font-size:16px;}
+
+  .import-box{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:20px; margin-bottom:18px; }
+  .import-box textarea{width:100%; height:110px; font-family:monospace; font-size:12px; resize:vertical;}
+  .import-steps{display:flex; margin-bottom:18px; border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;}
+  .import-steps div{flex:1; text-align:center; padding:9px; font-size:12px; font-weight:700; color:var(--ink-faint); background:var(--surface); border-right:1px solid var(--line);}
+  .import-steps div:last-child{border-right:none;}
+  .import-steps div.on{background:var(--blue); color:#fff;}
+  .col-map{display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:10px; margin-bottom:16px;}
+  .col-map label{font-size:11px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:3px;}
+  .preview-wrap{max-height:320px; overflow:auto; border:1px solid var(--line); border-radius:var(--radius);}
+  .preview-wrap table{font-size:12px;}
+  .preview-wrap thead th{position:sticky; top:0; background:var(--ink); color:#fff; border-bottom:none;}
+
+  .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; opacity:0; pointer-events:none; transition:opacity 0.2s; z-index:60; }
+  .toast.show{opacity:1;}
+
+  @media (max-width:900px){
+    .col-charge{display:none;}
+  }
+  @media (max-width:760px){
+    .sidebar{width:64px;}
+    .sidebar .org-name, .sidebar .org-sub, .sidebar .profile-card .who,
+    .sidebar .side-btn span, .sidebar .logout-btn span, .sidebar .nav-group-label{display:none;}
+    .sidebar .side-btn{justify-content:center; width:40px; margin:1px auto;}
+    .sidebar .profile-card{justify-content:center; padding:11px 0;}
+    .field-grid{grid-template-columns:1fr;}
+    .content{padding:16px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-seal">S</div>
+    <h1>Salem City Municipal<br>Corporation</h1>
+    <div class="sub">Employee Register · Official Portal</div>
+    <div class="login-error" id="loginError">Incorrect username or password.</div>
+    <div class="field"><label>Username</label><input type="text" id="loginUser" placeholder="Enter your username" autocomplete="username"></div>
+    <div class="field"><label>Password</label><input type="password" id="loginPass" placeholder="Enter your password" autocomplete="current-password"></div>
+    <div class="login-row"><span></span><a href="#" onclick="return false;">Forgot password?</a></div>
+    <button class="btn-signin" id="btnLogin">Sign In to System</button>
+    <div class="login-demo">
+      Demo accounts —<br>
+      Admin: <b>admin / admin123</b><br>
+      Head Office HR (all zones): <b>hohr / hohr123</b><br>
+      Zone HR (Zone-1 only): <b>zone1hr / zone123</b>
+    </div>
+    <div class="login-foot">🔒 Secure Government Portal · Salem City Municipal Corporation</div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div class="app-shell" id="appShell">
+  <aside class="sidebar" id="sidebar">
+    <div class="collapse-chip" id="collapseBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 5l-7 7 7 7"/></svg>
+    </div>
+    <div class="sidebar-head">
+      <div class="mark">S</div>
+      <div><div class="org-name">Salem Corporation</div><div class="org-sub">Employee Register</div></div>
+    </div>
+    <div class="profile-card">
+      <div class="av" id="userAv">–</div>
+      <div class="who"><b id="userName">–</b><small id="userRole">–</small></div>
+    </div>
+    <nav class="sidebar-nav" id="sidebarNav">
+      <div class="nav-group-label">Main</div>
+      <button class="side-btn active" data-panel="dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+        <span>Dashboard</span>
+      </button>
+      <button class="side-btn" data-panel="directory">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.4"/><path d="M4.5 20c1.4-4 4-6 7.5-6s6.1 2 7.5 6"/></svg>
+        <span>Directory</span>
+      </button>
+      <button class="side-btn" data-panel="vacancy">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 4v16"/></svg>
+        <span>Vacancy</span>
+      </button>
+      <div class="nav-group-label">Manage</div>
+      <button class="side-btn" data-panel="charges">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 14.4 7.2 16.9l.9-5.4L4.2 7.7l5.4-.8z"/></svg>
+        <span>Charges &amp; Work Alloc.</span>
+      </button>
+      <button class="side-btn" data-panel="schemes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 3v18M5 4h11l-2.2 3.5L16 11H5"/></svg>
+        <span>Work/Scheme Assigned</span>
+      </button>
+      <button class="side-btn" data-panel="import">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
+        <span>Bulk Import</span>
+      </button>
+      <button class="side-btn" data-panel="access" id="navAccess" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><circle cx="12" cy="10.5" r="2.2"/></svg>
+        <span>User Access</span>
+      </button>
+      <button class="side-btn" data-panel="settings" id="navSettings" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        <span>Settings</span>
+      </button>
+    </nav>
+    <div class="sidebar-foot">
+      <button class="logout-btn" id="logoutBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        <span>Sign Out</span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <div class="topbar">
+      <div><h2 id="pageTitle">Dashboard</h2><div class="subtitle" id="pageSubtitle">Overview &amp; Analytics</div></div>
+      <div class="right">
+        <span class="scope-pill" id="scopePill">All zones</span>
+        <button class="icon-btn" id="refreshBtn" title="Refresh">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16"><path d="M4 12a8 8 0 0114-5.3M20 12a8 8 0 01-14 5.3"/><path d="M18 3v5h-5M6 21v-5h5"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <section class="panel active" id="panel-dashboard">
+        <div class="dash-summary" id="dashSummary"></div>
+
+        <div class="dashboard-split">
+          <div class="dash-card zone-panel">
+            <h3>Zone Overview</h3>
+            <div class="hint">Click a zone to scope everything on the right. Click again to zoom back out.</div>
+            <div id="zoneBreakdown"></div>
+          </div>
+
+          <div class="dashboard-main">
+            <div id="zoneOfficerCard" style="display:none; margin-bottom:18px;"></div>
+
+            <div class="scope-chips" id="dashTabs">
+              <button class="scope-chip active" data-tab="designation">Designation</button>
+              <button class="scope-chip" data-tab="section">Section</button>
+              <button class="scope-chip" data-tab="category">Category</button>
+            </div>
+
+            <div class="dash-card">
+              <div class="tab-content" id="tab-designation">
+                <h3>Designation Breakdown</h3>
+                <div class="hint" id="desigHint">Current headcount by designation (all zones in view).</div>
+                <div id="desigBreakdown"></div>
+              </div>
+              <div class="tab-content" id="tab-section" style="display:none;">
+                <h3>Section Breakdown</h3>
+                <div class="hint" id="sectionHint">Current headcount by section (all zones in view).</div>
+                <div id="sectionBreakdown" class="section-tile-grid"></div>
+              </div>
+              <div class="tab-content" id="tab-category" style="display:none;">
+                <h3>Category Mix</h3>
+                <div class="hint">Regular vs. Deputation vs. Temporary, in the current scope.</div>
+                <div style="display:flex; align-items:center; gap:22px; flex-wrap:wrap; margin-top:8px;">
+                  <div id="categoryDonut" style="width:110px; height:110px; border-radius:50%; flex-shrink:0;"></div>
+                  <div id="categoryLegend" style="flex:1; min-width:140px;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DIRECTORY -->
+      <section class="panel" id="panel-directory">
+        <div class="row-between">
+          <div class="search-bar">
+            <input type="text" id="searchBox" placeholder="Search name, Emp ID, designation…">
+            <select id="zoneFilter"><option value="">All zones</option></select>
+            <select id="desigFilter"><option value="">All designations</option></select>
+            <select id="categoryFilter"><option value="">All categories</option></select>
+            <select id="sectionFilter"><option value="">All sections</option></select>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn ghost" id="btnExportExcel">⬇ Export Excel</button>
+            <button class="btn ghost" id="btnExportPDF">⬇ Export PDF</button>
+            <button class="btn" id="btnAddEmployee">+ Add employee</button>
+          </div>
+        </div>
+        <div class="row-between" style="margin-top:-8px;">
+          <div class="hint" style="font-size:11.5px; color:var(--ink-faint);" id="filterCount"></div>
+        </div>
+        <div class="card" style="overflow-x:auto;">
+        <table>
+          <thead><tr><th></th><th>Emp ID</th><th>Name</th><th>Current designation</th><th>Zone / Section</th><th class="col-charge">Charge / Work Alloc.</th></tr></thead>
+          <tbody id="directoryBody"></tbody>
+        </table>
+        </div>
+        <div class="empty" id="directoryEmpty" style="display:none;">No employees match this search.</div>
+      </section>
+
+      <!-- VACANCY -->
+      <section class="panel" id="panel-vacancy">
+        <div class="row-between">
+          <div class="hint" style="font-size:12.5px; color:var(--ink-faint);">Compares sanctioned strength against who's actually posted. Pick a scope, then compare cadre posts against field/support staff.</div>
+          <button class="btn" id="btnAddSanctioned" style="display:none;">+ Set sanctioned strength</button>
+        </div>
+        <div class="scope-chips" id="vacancyScopeChips"></div>
+        <div class="stat-grid" id="vacancyStats"></div>
+        <div class="dash-card" style="margin-bottom:18px;">
+          <h3>Sanctioned Cadre</h3>
+          <div class="hint">Officer/staff cadre defined in G.O. (Ms) No. 152, SCMC.</div>
+          <div class="card" style="box-shadow:none;"><table>
+            <thead><tr><th>Designation</th><th>Sanctioned</th><th>Filled</th><th>Status</th><th></th></tr></thead>
+            <tbody id="vacancyCadreBody"></tbody>
+          </table></div>
+        </div>
+        <div class="dash-card">
+          <h3>Field / Support Staff</h3>
+          <div class="hint">Not covered by G.O. 152 — sanitary, DBC and similar rolls tracked separately.</div>
+          <div class="card" style="box-shadow:none;"><table>
+            <thead><tr><th>Designation</th><th>Sanctioned</th><th>Filled</th><th>Status</th><th></th></tr></thead>
+            <tbody id="vacancyFieldBody"></tbody>
+          </table></div>
+        </div>
+      </section>
+
+      <!-- CHARGES -->
+      <section class="panel" id="panel-charges">
+        <div class="row-between"><div></div><button class="btn" id="btnAddCharge">+ Assign charge / work allocation</button></div>
+        <div class="card"><table>
+          <thead><tr><th>Employee</th><th>Role</th><th>Zone / Section</th><th>Start date</th><th>Status</th><th></th></tr></thead>
+          <tbody id="chargesBody"></tbody>
+        </table></div>
+      </section>
+
+      <!-- WORK/SCHEME ASSIGNED -->
+      <section class="panel" id="panel-schemes">
+        <div class="row-between"><div></div><button class="btn" id="btnAddScheme">+ Assign work/scheme</button></div>
+        <div class="card"><table>
+          <thead><tr><th>Work / Scheme</th><th>Assigned officer</th><th>Start date</th><th>Status</th><th></th></tr></thead>
+          <tbody id="schemesBody"></tbody>
+        </table></div>
+      </section>
+
+      <!-- BULK IMPORT -->
+      <section class="panel" id="panel-import">
+        <div class="import-steps">
+          <div class="on" id="step1lbl">1 · Paste or upload</div>
+          <div id="step2lbl">2 · Map columns</div>
+          <div id="step3lbl">3 · Preview &amp; confirm</div>
+        </div>
+        <div class="import-box" id="importStep1">
+          <div class="hint" style="font-size:12.5px; color:var(--ink-faint); margin-bottom:10px;">First row must be column headers. Accepts data copied from Excel/Sheets, or a .csv file.</div>
+          <div class="row-between" style="margin-bottom:10px;">
+            <input type="file" id="fileInput" accept=".csv,.txt">
+            <button class="btn ghost small" id="btnLoadSample">Load sample CSV</button>
+          </div>
+          <textarea id="csvText" placeholder="EmpID,Name,Designation,Zone,Section,DOJ,Phone,Category"></textarea>
+          <div class="modal-actions"><button class="btn" id="btnParseCsv">Parse data →</button></div>
+        </div>
+        <div class="import-box" id="importStep2" style="display:none;">
+          <div class="hint" style="font-size:12.5px; color:var(--ink-faint); margin-bottom:12px;">Match each field to a column. Emp ID is optional — leave unmatched to auto-generate new IDs.</div>
+          <div class="col-map" id="colMap"></div>
+          <div class="modal-actions"><button class="btn ghost" id="btnBackStep1">← Back</button><button class="btn" id="btnPreviewImport">Preview import →</button></div>
+        </div>
+        <div class="import-box" id="importStep3" style="display:none;">
+          <div class="row-between" style="margin-bottom:12px;"><div id="previewSummary" style="font-size:13px;"></div></div>
+          <div class="preview-wrap">
+            <table><thead><tr><th>Status</th><th>Emp ID</th><th>Name</th><th>Designation</th><th>Zone</th><th>Section</th><th>DOJ</th></tr></thead><tbody id="previewBody"></tbody></table>
+          </div>
+          <div class="modal-actions"><button class="btn ghost" id="btnBackStep2">← Back</button><button class="btn" id="btnConfirmImport">Confirm import</button></div>
+        </div>
+      </section>
+
+      <!-- USER ACCESS (admin only) -->
+      <section class="panel" id="panel-access">
+        <div class="row-between">
+          <div class="hint" style="font-size:12.5px; color:var(--ink-faint);">Assign each HR account either full (all-zone) access or one specific zone.</div>
+          <button class="btn" id="btnAddUser">+ Add HR account</button>
+        </div>
+        <div class="card"><table>
+          <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Assigned zone</th><th></th></tr></thead>
+          <tbody id="usersBody"></tbody>
+        </table></div>
+      </section>
+
+      <!-- SETTINGS (admin only) -->
+      <section class="panel" id="panel-settings">
+        <div class="hint" style="font-size:12.5px; color:var(--ink-faint); margin-bottom:16px;">Control the dropdown options offered everywhere in the app — Add Employee, Transfer, Bulk Import mapping and filters all read from these lists.</div>
+        <div class="chart-grid">
+          <div class="dash-card">
+            <h3>Designations</h3>
+            <div class="hint">Actual posts/cadres (e.g. Junior Assistant, Sanitary Worker, DBC Worker).</div>
+            <div id="listDesignations"></div>
+            <div class="row-between" style="margin-top:12px; gap:8px;">
+              <input type="text" id="newDesigInput" placeholder="Add designation…" style="flex:1;">
+              <button class="btn small" data-add-list="designation">+ Add</button>
+            </div>
+          </div>
+          <div class="dash-card">
+            <h3>Sections</h3>
+            <div class="hint">Departments/sections within a zone.</div>
+            <div id="listSections"></div>
+            <div class="row-between" style="margin-top:12px; gap:8px;">
+              <input type="text" id="newSectionInput" placeholder="Add section…" style="flex:1;">
+              <button class="btn small" data-add-list="section">+ Add</button>
+            </div>
+          </div>
+          <div class="dash-card">
+            <h3>Categories</h3>
+            <div class="hint">Employment type — Regular, Deputation, Temporary.</div>
+            <div id="listCategories"></div>
+            <div class="row-between" style="margin-top:12px; gap:8px;">
+              <input type="text" id="newCategoryInput" placeholder="Add category…" style="flex:1;">
+              <button class="btn small" data-add-list="category">+ Add</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- Employee detail drawer -->
+<div class="overlay" id="drawerOverlay">
+  <div class="drawer">
+    <button class="close" id="closeDrawer">&times;</button>
+    <div class="drawer-head">
+      <div id="drawerAvatarWrap"></div>
+      <div><h2 id="drawerName"></h2><div class="id mono" id="drawerId"></div></div>
+    </div>
+    <div class="field-grid" id="drawerFields"></div>
+    <div class="drawer-actions">
+      <button class="btn ghost small" id="btnEditEmployee">Edit details</button>
+      <button class="btn danger small" id="btnDeleteEmployee">Delete employee</button>
+    </div>
+    <div class="section-title">Posting history</div>
+    <div id="drawerPostings"></div>
+    <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+      <button class="btn ghost small" id="btnTransfer">Record transfer</button>
+      <button class="btn ghost small" id="btnAddPastRecord">+ Add past record</button>
+    </div>
+    <div class="section-title">Additional charges / work allocations held</div>
+    <div id="drawerCharges"></div>
+    <div class="section-title">Work/Scheme assignments</div>
+    <div id="drawerSchemes"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay"><div class="modal" id="modalBody"></div></div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script>
+/* =================================================================
+   DATA MODEL
+==================================================================*/
+const ZONES = ["Main Office","Zone-1 Suramangalam","Zone-2 Hasthampatti","Zone-3 Ammapet","Zone-4 Kondalampatti"];
+let SECTIONS = ["Commissioner's Office","Mayor Office","Deputy Mayor Office","General Administration Section","Public Health Section","Engineering Section","Town Planning Section","Accounts Section"];
+let CATEGORIES = ["Regular","Deputation","Temporary"];
+let DESIGNATIONS = ["Commissioner","Deputy Commissioner","Assistant Commissioner (Zone)","Assistant Commissioner (Revenue)","Assistant Commissioner (Personnel)","Assistant Commissioner (Accounts)","Accounts Officer","Council Secretary","Public Relation Officer","Administrative Officer","Revenue Officer","Superintendent","Assistant Revenue Officer","Assistant","Personal Clerk","Junior Assistant","Driver","City Health Officer","Assistant City Health Officer","Veterinary Medical Officer","Sanitary Officer","Sanitary Inspector","Entomologist","City Engineer","Deputy City Engineer","Zonal Engineer","Assistant Executive Engineer","Assistant Engineer / Junior Engineer","Draughtsman","Technical Assistant / Public Works Overseer","Electrical Superintendent","Junior Engineer (Automobile)","City Planner","Assistant City Planner","Planning Inspector","Sanitary Worker","Office Assistant","Unskilled Worker","DBC Worker"];
+// Field/support roles outside G.O. 152's sanctioned cadre. DBC Worker is flagged separately as internal-use tracking.
+const FIELD_DESIGNATIONS = ["Sanitary Worker","Office Assistant","Unskilled Worker"];
+const INTERNAL_DESIGNATIONS = ["DBC Worker"];
+
+// ---------------------------------------------------------------
+// API client — talks to the Apps Script backend (see Code.gs).
+// IMPORTANT: replace this with your own deployment URL after
+// following the deployment steps (Deploy > New deployment > Web app).
+// ---------------------------------------------------------------
+const API_BASE = "PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
+async function apiCall(action, payload){
+  if(!API_BASE || API_BASE.indexOf('PASTE_YOUR')===0){
+    console.warn('API_BASE not configured — running in local-only demo mode. Action not persisted:', action);
+    return { ok:false, error:'not-configured' };
+  }
+  try{
+    const res = await fetch(API_BASE, {
+      method:'POST',
+      // text/plain deliberately avoids a CORS preflight — Apps Script Web Apps
+      // cannot answer OPTIONS requests, so application/json would fail here.
+      headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action, payload })
+    });
+    const json = await res.json();
+    if(!json.ok) console.error('API error on '+action+':', json.error);
+    return json;
+  }catch(err){
+    console.error('Network error on '+action+':', err);
+    return { ok:false, error: String(err) };
+  }
+}
+// Fire-and-forget wrapper for mutations: keeps the UI instant (local state
+// already updated before this is called) while still persisting to the
+// Sheet, and surfaces a toast if the save silently failed.
+function persist(action, payload){
+  apiCall(action, payload).then(res=>{
+    if(!res.ok && res.error!=='not-configured') toast('Could not save to server — check your connection.');
+  });
+}
+
+
+let employees = [
+  {id:"SCM-0001", name:"R. Kumaresan", dob:"1978-06-14", doj:"2001-03-05", native:"Attur", phone:"9944100001", email:"kumaresan@salemcorp.example", category:"Regular", photo:null, deputation:null},
+  {id:"SCM-0002", name:"S. Vijayalakshmi", dob:"1985-11-02", doj:"2010-07-19", native:"Salem", phone:"9944100002", email:"vijaya@salemcorp.example", category:"Regular", photo:null, deputation:null},
+  {id:"SCM-0003", name:"M. Selvam", dob:"1990-02-27", doj:"2015-01-12", native:"Mettur", phone:"9944100003", email:"selvam@salemcorp.example", category:"Regular", photo:null, deputation:null},
+  {id:"SCM-0004", name:"K. Ramesh", dob:"1988-04-09", doj:"2018-06-01", native:"Salem", phone:"9944100004", email:"", category:"Regular", photo:null, deputation:null},
+  {id:"SCM-0005", name:"P. Meena", dob:"1992-01-20", doj:"2020-11-15", native:"Salem", phone:"9944100011", email:"", category:"Regular", photo:null, deputation:null},
+  {id:"SCM-0006", name:"A. Saravanan", dob:"1987-09-02", doj:"2019-02-20", native:"Attur", phone:"9944100012", email:"", category:"Regular", photo:null, deputation:null},
+  {id:"SCM-0007", name:"Prakash", dob:"1991-08-11", doj:"2016-03-14", native:"Salem", phone:"9944100013", email:"", category:"Deputation", photo:null, deputation:{type:"out", org:"Erode Municipal Corporation"}},
+  {id:"SCM-0008", name:"R. Suresh", dob:"1989-12-05", doj:"2013-09-01", native:"Coimbatore", phone:"9944100014", email:"", category:"Deputation", photo:null, deputation:{type:"in", org:"Coimbatore Corporation"}},
+];
+let postings = [
+  {id:"PST-0001", empId:"SCM-0001", designation:"Superintendent", zone:"Main Office", section:"Public Health Section", start:"2001-03-05", end:"2019-08-31"},
+  {id:"PST-0002", empId:"SCM-0001", designation:"Assistant Commissioner (Personnel)", zone:"Main Office", section:"General Administration Section", start:"2019-09-01", end:null},
+  {id:"PST-0003", empId:"SCM-0002", designation:"Junior Assistant", zone:"Main Office", section:"Accounts Section", start:"2010-07-19", end:null},
+  {id:"PST-0004", empId:"SCM-0003", designation:"Unskilled Worker", zone:"Main Office", section:"Public Health Section", start:"2015-01-12", end:null},
+  {id:"PST-0005", empId:"SCM-0004", designation:"Junior Assistant", zone:"Zone-1 Suramangalam", section:"General Administration Section", start:"2018-06-01", end:null},
+  {id:"PST-0006", empId:"SCM-0005", designation:"Sanitary Worker", zone:"Zone-2 Hasthampatti", section:"Public Health Section", start:"2020-11-15", end:null},
+  {id:"PST-0007", empId:"SCM-0006", designation:"DBC Worker", zone:"Zone-3 Ammapet", section:"Public Health Section", start:"2019-02-20", end:null},
+  {id:"PST-0008", empId:"SCM-0007", designation:"Junior Assistant", zone:"Main Office", section:"General Administration Section", start:"2016-03-14", end:null},
+  {id:"PST-0009", empId:"SCM-0008", designation:"Junior Assistant", zone:"Zone-1 Suramangalam", section:"General Administration Section", start:"2013-09-01", end:null},
+];
+let charges = [
+  {id:"CHG-0001", empId:"SCM-0003", role:"Junior Assistant In-charge", zone:"Main Office", section:"General Administration Section", start:"2023-04-01", end:null},
+  {id:"CHG-0002", empId:"SCM-0002", role:"In-charge, Zone 3 Accounts", zone:"Zone-3 Ammapet", section:"Accounts Section", start:"2024-06-10", end:null},
+];
+let schemes = [
+  {id:"SCH-0001", scheme:"Swachh Bharat Mission - Urban", empId:"SCM-0001", start:"2022-01-01", end:null},
+  {id:"SCH-0002", scheme:"AMRUT 2.0", empId:"SCM-0002", start:"2023-05-15", end:null},
+];
+let users = [
+  {username:"admin", password:"admin123", name:"System Admin", role:"admin", zone:null},
+  {username:"hohr", password:"hohr123", name:"Head Office HR", role:"headoffice", zone:null},
+  {username:"zone1hr", password:"zone123", name:"Zone-1 HR Officer", role:"zonehr", zone:"Zone-1 Suramangalam"},
+];
+// Sanctioned strength per G.O. (Ms) No. 152, SCMC, dated 20.10.2022 — HQ + 4-zone total split evenly per zone.
+// serial/section preserve the G.O.'s own row order and section groupings (rows 1-6, 7-17, 18-23, 24-32, 33-35).
+const GO152_STRENGTH = [
+  {serial:1, section:"Commissioner's Office", designation:"Commissioner", ho:1, perZone:0},
+  {serial:2, section:"Commissioner's Office", designation:"Deputy Commissioner", ho:2, perZone:0},
+  {serial:3, section:"Commissioner's Office", designation:"Assistant Commissioner (Zone)", ho:0, perZone:1},
+  {serial:4, section:"Commissioner's Office", designation:"Assistant Commissioner (Revenue)", ho:1, perZone:0},
+  {serial:5, section:"Commissioner's Office", designation:"Assistant Commissioner (Personnel)", ho:1, perZone:0},
+  {serial:6, section:"Commissioner's Office", designation:"Assistant Commissioner (Accounts)", ho:1, perZone:0},
+  {serial:7, section:"General Administration Section", designation:"Accounts Officer", ho:1, perZone:0},
+  {serial:8, section:"General Administration Section", designation:"Council Secretary", ho:1, perZone:0},
+  {serial:9, section:"General Administration Section", designation:"Public Relation Officer", ho:1, perZone:0},
+  {serial:10, section:"General Administration Section", designation:"Administrative Officer", ho:0, perZone:1},
+  {serial:11, section:"General Administration Section", designation:"Revenue Officer", ho:1, perZone:0},
+  {serial:12, section:"General Administration Section", designation:"Superintendent", ho:6, perZone:2},
+  {serial:13, section:"General Administration Section", designation:"Assistant Revenue Officer", ho:0, perZone:1},
+  {serial:14, section:"General Administration Section", designation:"Assistant", ho:8, perZone:3},
+  {serial:15, section:"General Administration Section", designation:"Personal Clerk", ho:3, perZone:0},
+  {serial:16, section:"General Administration Section", designation:"Junior Assistant", ho:16, perZone:6},
+  {serial:17, section:"General Administration Section", designation:"Driver", ho:3, perZone:0},
+  {serial:18, section:"Public Health Section", designation:"City Health Officer", ho:1, perZone:0},
+  {serial:19, section:"Public Health Section", designation:"Assistant City Health Officer", ho:1, perZone:0},
+  {serial:20, section:"Public Health Section", designation:"Veterinary Medical Officer", ho:1, perZone:0},
+  {serial:21, section:"Public Health Section", designation:"Sanitary Officer", ho:0, perZone:1},
+  {serial:22, section:"Public Health Section", designation:"Sanitary Inspector", ho:0, perZone:5},
+  {serial:23, section:"Public Health Section", designation:"Entomologist", ho:1, perZone:0},
+  {serial:24, section:"Engineering Section", designation:"City Engineer", ho:1, perZone:0},
+  {serial:25, section:"Engineering Section", designation:"Deputy City Engineer", ho:3, perZone:0},
+  {serial:26, section:"Engineering Section", designation:"Zonal Engineer", ho:0, perZone:1},
+  {serial:27, section:"Engineering Section", designation:"Assistant Executive Engineer", ho:0, perZone:1},
+  {serial:28, section:"Engineering Section", designation:"Assistant Engineer / Junior Engineer", ho:0, perZone:5},
+  {serial:29, section:"Engineering Section", designation:"Draughtsman", ho:3, perZone:1},
+  {serial:30, section:"Engineering Section", designation:"Technical Assistant / Public Works Overseer", ho:0, perZone:10},
+  {serial:31, section:"Engineering Section", designation:"Electrical Superintendent", ho:1, perZone:0},
+  {serial:32, section:"Engineering Section", designation:"Junior Engineer (Automobile)", ho:1, perZone:0},
+  {serial:33, section:"Town Planning Section", designation:"City Planner", ho:1, perZone:0},
+  {serial:34, section:"Town Planning Section", designation:"Assistant City Planner", ho:0, perZone:2},
+  {serial:35, section:"Town Planning Section", designation:"Planning Inspector", ho:0, perZone:2},
+];
+const GO152_ORDER = {}; const GO152_SECTION = {};
+GO152_STRENGTH.forEach(r=>{ GO152_ORDER[r.designation]=r.serial; GO152_SECTION[r.designation]=r.section; });
+const GO152_SECTIONS_IN_ORDER = ["Commissioner's Office","General Administration Section","Public Health Section","Engineering Section","Town Planning Section"];
+let sanctionedPosts = [];
+GO152_STRENGTH.forEach(row=>{
+  if(row.ho>0) sanctionedPosts.push({zone:"Main Office", designation:row.designation, sanctioned:row.ho});
+  if(row.perZone>0){
+    ZONES.slice(1).forEach(z=> sanctionedPosts.push({zone:z, designation:row.designation, sanctioned:row.perZone}));
+  }
+});
+let currentUser = null;
+let drillZone = null; // active zone drill-down on Dashboard, or null = overall
+let dashboardTab = 'designation'; // which single dashboard view is showing: designation/section/category (zone now lives permanently in the side panel)
+
+let seq = {emp:8, pst:9, chg:2, sch:2};
+const pad = (n)=> String(n).padStart(4,"0");
+
+function currentPosting(empId){ return postings.find(p=>p.empId===empId && !p.end) || null; }
+function activeCharges(empId){ return charges.filter(c=>c.empId===empId && !c.end); }
+function empName(empId){ const e=employees.find(x=>x.id===empId); return e?e.name:empId; }
+function fmtDate(d){ if(!d) return "—"; const dt=new Date(d+"T00:00:00"); return dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); }
+function initials(name){ return (name||'?').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
+function zoneShort(z){ return z.replace(/^Zone-\d+\s*/,'').replace('Main Office','Main Office'); }
+function formatZoneScopeLabel(zoneNameList){
+  const hasHO = zoneNameList.includes('Main Office');
+  const others = zoneNameList.filter(z=>z!=='Main Office').length;
+  if(hasHO && others>0) return `HO + ${others} Zone${others===1?'':'s'}`;
+  if(hasHO) return 'HO only';
+  return `${others} Zone${others===1?'':'s'}`;
+}
+function getDesignationSanctionedMap(zones){
+  const map = {};
+  sanctionedPosts.filter(sp=>zones.includes(sp.zone)).forEach(sp=>{ map[sp.designation] = (map[sp.designation]||0) + sp.sanctioned; });
+  return map;
+}
+function waffleBlock(label, filled, sanctioned){
+  const total = Math.max(sanctioned, filled, 1);
+  const statusText = sanctioned>0 ? `${filled} of ${sanctioned} sanctioned` : `${filled} filled — not in G.O. 152`;
+  let cells = '';
+  for(let i=0;i<total;i++){ cells += `<div class="waffle-cell ${i<filled?'on':''}"></div>`; }
+  return `<div class="waffle-block">
+    <div class="waffle-head"><b>${label}</b><span>${statusText}</span></div>
+    <div class="waffle-grid">${cells}</div>
+  </div>`;
+}
+function renderDesignationHierarchy(map, sanctionedMap){
+  const groups = GO152_SECTIONS_IN_ORDER.map(sec=>({
+    section: sec,
+    entries: Object.entries(map).filter(([label])=> GO152_SECTION[label]===sec)
+      .sort((a,b)=> (GO152_ORDER[a[0]]||999) - (GO152_ORDER[b[0]]||999))
+  })).filter(g=>g.entries.length);
+  const fieldEntries = Object.entries(map).filter(([label])=> !GO152_SECTION[label]).sort((a,b)=>b[1]-a[1]);
+  let html = '';
+  groups.forEach(g=>{
+    html += `<div class="list-section-header">${g.section}</div>`;
+    html += g.entries.map(([label,n])=>waffleBlock(label, n, sanctionedMap[label]||0)).join('');
+  });
+  if(fieldEntries.length){
+    html += `<div class="list-section-header">Field / Support Staff</div>`;
+    html += fieldEntries.map(([label,n])=>waffleBlock(label, n, sanctionedMap[label]||0)).join('');
+  }
+  return html || '<div class="empty">No data in scope.</div>';
+}
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2200); }
+
+/* ---------------- Access scope ---------------- */
+function visibleZones(){
+  if(!currentUser) return [];
+  if(currentUser.role==='zonehr') return [currentUser.zone];
+  return ZONES;
+}
+function empInScope(empId){
+  const p = currentPosting(empId);
+  if(!p) return currentUser.role!=='zonehr';
+  return visibleZones().includes(p.zone);
+}
+function isAdmin(){ return currentUser && currentUser.role==='admin'; }
+
+/* ---------------- LOGIN ---------------- */
+document.getElementById('btnLogin').addEventListener('click', doLogin);
+document.getElementById('loginPass').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+async function loadAllFromBackend(){
+  const res = await apiCall('getAll', {});
+  if(!res.ok || !res.data) return false;
+  const d = res.data;
+  employees = d.employees.map(e=>({
+    id:e.id, name:e.name, dob:e.dob||'', doj:e.doj||'', native:e.native||'', phone:e.phone||'', email:e.email||'',
+    category:e.category||'Regular', photo:e.photo||null,
+    deputation: e.depType ? {type:e.depType, org:e.depOrg||''} : null
+  }));
+  postings = d.postings.map(p=>({ id:p.id, empId:p.empId, designation:p.designation, zone:p.zone, section:p.section, start:p.start, end:p.end||null }));
+  charges = d.charges.map(c=>({ id:c.id, empId:c.empId, role:c.role, zone:c.zone, section:c.section, start:c.start, end:c.end||null }));
+  schemes = d.schemes.map(s=>({ id:s.id, scheme:s.scheme, empId:s.empId, start:s.start, end:s.end||null }));
+  sanctionedPosts = d.sanctionedPosts.map(sp=>({ zone:sp.zone, designation:sp.designation, sanctioned:Number(sp.sanctioned)||0 }));
+  users = d.users.map(u=>({ username:u.username, name:u.name, role:u.role, zone:u.zone||null, password:'' }));
+  if(d.lists && d.lists.length){
+    DESIGNATIONS = d.lists.filter(l=>l.type==='designation').map(l=>l.value);
+    SECTIONS = d.lists.filter(l=>l.type==='section').map(l=>l.value);
+    CATEGORIES = d.lists.filter(l=>l.type==='category').map(l=>l.value);
+  }
+  return true;
+}
+function backendConfigured(){ return API_BASE && API_BASE.indexOf('PASTE_YOUR')!==0; }
+
+async function doLogin(){
+  const u = document.getElementById('loginUser').value.trim();
+  const p = document.getElementById('loginPass').value;
+  let match = null;
+
+  if(backendConfigured()){
+    const res = await apiCall('login', {username:u, password:p});
+    if(res.ok && res.data) match = res.data;
+  }
+  if(!match){
+    match = users.find(x=>x.username===u && x.password===p) || null; // local demo fallback
+  }
+  if(!match){ document.getElementById('loginError').style.display='block'; return; }
+  document.getElementById('loginError').style.display='none';
+  currentUser = match; drillZone = null;
+
+  if(backendConfigured()) await loadAllFromBackend();
+
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('appShell').classList.add('on');
+  const roleLabel = {admin:'Administrator', headoffice:'Head Office HR', zonehr:'Zone HR — '+match.zone}[match.role];
+  document.getElementById('userAv').textContent = initials(match.name);
+  document.getElementById('userName').textContent = match.name;
+  document.getElementById('userRole').textContent = roleLabel;
+  document.getElementById('scopePill').textContent = match.role==='zonehr' ? match.zone : 'All zones';
+  document.getElementById('navAccess').style.display = isAdmin() ? 'flex' : 'none';
+  document.getElementById('navSettings').style.display = isAdmin() ? 'flex' : 'none';
+  document.getElementById('btnAddSanctioned').style.display = (currentUser.role!=='zonehr') ? 'inline-flex' : 'none';
+  rebuildZoneOptions();
+  rebuildOtherFilterOptions();
+  if(currentUser.role==='zonehr'){ zoneFilterEl.value = currentUser.zone; zoneFilterEl.disabled = true; }
+  else { zoneFilterEl.disabled = false; }
+  renderAll();
+}
+document.getElementById('logoutBtn').addEventListener('click', ()=>{
+  currentUser = null;
+  document.getElementById('appShell').classList.remove('on');
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('loginUser').value=''; document.getElementById('loginPass').value='';
+});
+document.getElementById('refreshBtn').addEventListener('click', ()=>{ renderAll(); toast('Refreshed.'); });
+
+/* ---------------- Sidebar nav ---------------- */
+const titles = {dashboard:["Dashboard","Overview & Analytics"], directory:["Directory","Employee records"], vacancy:["Vacancy","Sanctioned vs filled posts"], charges:["Additional Charge / Work Allocation","In-charge appointments and day-to-day seat allocations"], schemes:["Work/Scheme Assigned","Who owns what"], import:["Bulk Import","Add many employees at once"], access:["User Access","Manage HR accounts"], settings:["Settings","Manage dropdown lists"]};
+document.querySelectorAll('.side-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.side-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-'+btn.dataset.panel).classList.add('active');
+    document.getElementById('pageTitle').textContent = titles[btn.dataset.panel][0];
+    document.getElementById('pageSubtitle').textContent = titles[btn.dataset.panel][1];
+    if(btn.dataset.panel==='dashboard') renderDashboard();
+    if(btn.dataset.panel==='access') renderUsers();
+    if(btn.dataset.panel==='settings') renderSettingsLists();
+    if(btn.dataset.panel==='vacancy') renderVacancy();
+  });
+});
+document.getElementById('collapseBtn').addEventListener('click', ()=>{ document.getElementById('sidebar').classList.toggle('collapsed'); });
+
+function renderAll(){ renderDashboard(); renderDirectory(); renderCharges(); renderSchemes(); }
+
+/* ---------------- Dashboard ---------------- */
+const ZONE_BAR_COLOR = 'var(--blue)';
+function renderDashboard(){
+  document.querySelectorAll('#dashTabs .scope-chip').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===dashboardTab); });
+  ['designation','section','category'].forEach(t=>{
+    document.getElementById('tab-'+t).style.display = (t===dashboardTab) ? 'block' : 'none';
+  });
+  const vz = visibleZones();
+
+  const scopeZones = drillZone ? [drillZone] : vz;
+  const scopedEmpIds = employees.filter(e=>empInScope(e.id)).map(e=>e.id);
+  const activePostingsInVZ = postings.filter(p=>!p.end && vz.includes(p.zone));
+  const activePostingsInScope = postings.filter(p=>!p.end && scopeZones.includes(p.zone));
+
+  const total = activePostingsInScope.length || (drillZone?0:scopedEmpIds.length);
+  const activeChargeCount = charges.filter(c=>!c.end && scopeZones.includes(c.zone)).length;
+  const activeSchemeCount = schemes.filter(s=>!s.end && activePostingsInScope.some(p=>p.empId===s.empId)).length;
+  const zonesCoveredList = [...new Set(activePostingsInVZ.map(p=>p.zone))];
+  const zonesCovered = zonesCoveredList.length;
+  const vacRowsForSummary = getVacancyRows(null);
+  const totalVacantForSummary = vacRowsForSummary.reduce((s,r)=>s+Math.max(0, r.sanctioned-r.filled),0);
+
+  document.getElementById('dashSummary').textContent = drillZone
+    ? `${total} officers in ${zoneShort(drillZone)}`
+    : `${total} employees · ${formatZoneScopeLabel(zonesCoveredList)} in view · ${totalVacantForSummary} vacant posts · ${activeChargeCount} additional charges · ${activeSchemeCount} work/scheme assignments`;
+
+  // Zone overview — small persistent panel, 2-column mini-grid of clickable tiles (Overall spans both columns).
+  // The selected zone scopes Designation/Section/Category on the right; an "Officers in X" card
+  // appears above the tabs when a specific zone is picked.
+  const totalAcrossVZ = postings.filter(p=>!p.end && vz.includes(p.zone)).length;
+  const zoneCounts = vz.map(z=>({zone:z, n: postings.filter(p=>!p.end && p.zone===z).length}));
+  const zoneMax = Math.max(1, ...zoneCounts.map(c=>c.n));
+  document.getElementById('zoneBreakdown').innerHTML = `
+    <div class="zone-grid2">
+      <div class="g2-cell g2-overall ${!drillZone?'selected':''}" data-zone="__overall__">
+        <div class="g2-name">OVERALL — HO + ${vz.length-1} Zone${vz.length-1===1?'':'s'}</div>
+        <div class="g2-num">${totalAcrossVZ}</div>
+      </div>
+      ${zoneCounts.map(c=>`
+      <div class="g2-cell ${drillZone===c.zone?'selected':''}" data-zone="${c.zone}">
+        <div class="g2-name" title="${c.zone}">${zoneShort(c.zone)}</div>
+        <div class="g2-num">${c.n}</div>
+        <div class="g2-track"><div class="g2-fill" style="width:${(c.n/zoneMax*100)||0}%;"></div></div>
+      </div>`).join('')}
+    </div>`;
+  document.querySelectorAll('.g2-cell').forEach(cell=>{
+    cell.addEventListener('click', ()=>{
+      const z = cell.dataset.zone;
+      if(z==='__overall__'){ drillZone = null; }
+      else { drillZone = (drillZone===z) ? null : z; }
+      renderDashboard();
+    });
+  });
+
+  const officerCard = document.getElementById('zoneOfficerCard');
+  if(drillZone){
+    const rows = activePostingsInScope.map(p=>{ const e = employees.find(x=>x.id===p.empId); return {e,p}; }).filter(r=>r.e);
+    officerCard.style.display = 'block';
+    officerCard.innerHTML = `
+      <div class="dash-card" style="margin-bottom:0;">
+        <div class="row-between" style="margin-bottom:6px;">
+          <h3 style="font-size:14.5px; font-weight:700;">Officers in ${drillZone}</h3>
+          <button class="btn ghost small" id="btnClearZonePanel">← All zones (overall)</button>
+        </div>
+        <div class="card" style="margin-top:8px; box-shadow:none;">
+        <table>
+          <thead><tr><th></th><th>Emp ID</th><th>Name</th><th>Designation</th><th>Section</th></tr></thead>
+          <tbody>
+            ${rows.map(({e,p})=>`
+              <tr class="rowclick" data-emp="${e.id}">
+                <td>${avatarHtml(e)}</td><td class="mono">${e.id}</td><td>${e.name}</td><td>${p.designation}</td><td>${p.section}</td>
+              </tr>`).join('') || `<tr><td colspan="5" class="empty">No officers currently posted here.</td></tr>`}
+          </tbody>
+        </table>
+        </div>
+      </div>`;
+    officerCard.querySelectorAll('tr[data-emp]').forEach(tr=> tr.addEventListener('click', ()=>openDrawer(tr.dataset.emp)));
+    document.getElementById('btnClearZonePanel').addEventListener('click', ()=>{ drillZone=null; renderDashboard(); });
+  } else {
+    officerCard.style.display = 'none';
+    officerCard.innerHTML = '';
+  }
+
+  // Designation breakdown, scoped to drill if active — grouped and ordered per G.O. 152's own hierarchy
+  const desigMap = {};
+  activePostingsInScope.forEach(p=>{ desigMap[p.designation] = (desigMap[p.designation]||0)+1; });
+  document.getElementById('desigHint').textContent = (drillZone ? `Designations in ${zoneShort(drillZone)}` : 'Designations across zones in view') + ', grouped by G.O. 152 section in serial order.';
+  const desigSanctionedMap = getDesignationSanctionedMap(scopeZones);
+  document.getElementById('desigBreakdown').innerHTML = renderDesignationHierarchy(desigMap, desigSanctionedMap);
+
+  // Section breakdown, scoped to drill if active — always lists every known section, even at 0 — rendered as compact tiles
+  const sectionMap = {};
+  SECTIONS.forEach(s=> sectionMap[s]=0);
+  activePostingsInScope.forEach(p=>{ sectionMap[p.section] = (sectionMap[p.section]||0)+1; });
+  const sectionEntries = Object.entries(sectionMap).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('sectionHint').textContent = drillZone ? `Current headcount by section in ${zoneShort(drillZone)}.` : 'Current headcount by section (all zones in view).';
+  document.getElementById('sectionBreakdown').innerHTML = sectionEntries.length ? sectionEntries.map(([label,n])=>`
+    <div class="section-tile"><div class="num">${n}</div><div class="lbl">${label}</div></div>`).join('') : '<div class="empty">No data in scope.</div>';
+
+  // Category mix — CSS conic-gradient donut, scoped to drill if active
+  const catColors = {Regular:'var(--blue)', Deputation:'var(--purple)', Temporary:'var(--orange)'};
+  const fallbackColors = ['var(--cyan)','var(--green)','var(--red)'];
+  const scopedEmpIdsInScope = new Set(activePostingsInScope.map(p=>p.empId));
+  const catMap = {};
+  employees.filter(e=>scopedEmpIdsInScope.has(e.id)).forEach(e=>{ catMap[e.category] = (catMap[e.category]||0)+1; });
+  const catEntries = Object.entries(catMap);
+  const catTotal = catEntries.reduce((s,[,n])=>s+n,0);
+  if(catTotal===0){
+    document.getElementById('categoryDonut').style.background = 'var(--bg)';
+    document.getElementById('categoryDonut').style.border = '1px dashed var(--line)';
+    document.getElementById('categoryLegend').innerHTML = '<div class="empty" style="padding:8px 0;">No data in scope.</div>';
+  } else {
+    let acc = 0, stops = [];
+    catEntries.forEach(([label,n], i)=>{
+      const color = catColors[label] || fallbackColors[i % fallbackColors.length];
+      const start = acc/catTotal*360; acc += n;
+      const end = acc/catTotal*360;
+      stops.push(`${color} ${start}deg ${end}deg`);
+    });
+    document.getElementById('categoryDonut').style.border = 'none';
+    document.getElementById('categoryDonut').style.background = `conic-gradient(${stops.join(', ')})`;
+    document.getElementById('categoryDonut').style.mask = 'radial-gradient(farthest-side, transparent calc(100% - 22px), #000 calc(100% - 22px))';
+    document.getElementById('categoryDonut').style.webkitMask = 'radial-gradient(farthest-side, transparent calc(100% - 22px), #000 calc(100% - 22px))';
+    document.getElementById('categoryLegend').innerHTML = catEntries.map(([label,n],i)=>{
+      const color = catColors[label] || fallbackColors[i % fallbackColors.length];
+      return `<div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:12.5px;">
+        <span style="width:10px; height:10px; border-radius:3px; background:${color}; flex-shrink:0;"></span>
+        <span style="flex:1;">${label}</span><b>${n}</b>
+      </div>`;
+    }).join('');
+  }
+}
+document.querySelectorAll('#dashTabs .scope-chip').forEach(b=>{
+  b.addEventListener('click', ()=>{ dashboardTab = b.dataset.tab; renderDashboard(); });
+});
+
+function statCard(bg, color, icon, num, lbl){
+  return `<div class="stat-card" style="border-left-color:${color}">
+    <div class="icn" style="background:${bg}; color:${color};">${icon}</div>
+    <div class="num">${num}</div><div class="lbl">${lbl}</div>
+  </div>`;
+}
+function iconPeople(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c1.3-3.7 3.7-5.6 6.5-5.6s5.2 1.9 6.5 5.6"/><circle cx="17" cy="8" r="2.4"/><path d="M15.5 14.6c2.3.3 4 2 5 5.4"/></svg>`; }
+function iconBuilding(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="10" height="18"/><rect x="14" y="9" width="6" height="12"/><path d="M7 7h1M11 7h1M7 11h1M11 11h1M7 15h1M11 15h1"/></svg>`; }
+function iconStar(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 15.9 6.6 18.9l1-6.1L3.2 8.5l6.1-.9z"/></svg>`; }
+function iconFlag(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3v18M5 4h11l-2.2 3.5L16 11H5"/></svg>`; }
+
+/* ---------------- Directory ---------------- */
+const zoneFilterEl = document.getElementById('zoneFilter');
+const desigFilterEl = document.getElementById('desigFilter');
+const categoryFilterEl = document.getElementById('categoryFilter');
+const sectionFilterEl = document.getElementById('sectionFilter');
+function rebuildZoneOptions(){
+  zoneFilterEl.innerHTML = '<option value="">All zones</option>' + visibleZones().map(z=>`<option value="${z}">${z}</option>`).join('');
+}
+function rebuildOtherFilterOptions(){
+  const vz = visibleZones();
+  const desigs = [...new Set(postings.filter(p=>!p.end && vz.includes(p.zone)).map(p=>p.designation))].sort();
+  desigFilterEl.innerHTML = '<option value="">All designations</option>' + desigs.map(d=>`<option>${d}</option>`).join('');
+  categoryFilterEl.innerHTML = '<option value="">All categories</option>' + CATEGORIES.map(c=>`<option>${c}</option>`).join('');
+  sectionFilterEl.innerHTML = '<option value="">All sections</option>' + SECTIONS.map(s=>`<option>${s}</option>`).join('');
+}
+function avatarHtml(e, size){
+  const s = size||32;
+  if(e.photo) return `<img class="avatar" style="width:${s}px;height:${s}px" src="${e.photo}">`;
+  return `<div class="avatar-fallback" style="width:${s}px;height:${s}px">${initials(e.name)}</div>`;
+}
+function getDirectoryRows(){
+  const q = document.getElementById('searchBox').value.trim().toLowerCase();
+  const zf = zoneFilterEl.value, df = desigFilterEl.value, cf = categoryFilterEl.value, sf = sectionFilterEl.value;
+  return employees.filter(e=>empInScope(e.id)).map(e=>{ const p=currentPosting(e.id); const ac=activeCharges(e.id); return {e,p,ac}; })
+    .filter(({e,p})=>{
+      const mq = !q || e.name.toLowerCase().includes(q) || e.id.toLowerCase().includes(q) || (p && p.designation.toLowerCase().includes(q));
+      const mz = !zf || (p && p.zone===zf);
+      const md = !df || (p && p.designation===df);
+      const mc = !cf || e.category===cf;
+      const ms = !sf || (p && p.section===sf);
+      return mq && mz && md && mc && ms;
+    });
+}
+function deputationPill(e){
+  if(!e.deputation) return '';
+  const org = e.deputation.org ? ` — ${e.deputation.org}` : '';
+  if(e.deputation.type==='out') return ` <span class="pill blue" title="Holds this post, physically working elsewhere">Deputed out${org}</span>`;
+  if(e.deputation.type==='in') return ` <span class="pill" style="background:var(--purple-soft); color:var(--purple);" title="From another corporation — does not count toward this post">Deputed in${org}</span>`;
+  return '';
+}
+function renderDirectory(){
+  const body = document.getElementById('directoryBody');
+  const rows = getDirectoryRows();
+  document.getElementById('directoryEmpty').style.display = rows.length ? 'none' : 'block';
+  document.getElementById('filterCount').textContent = `${rows.length} employee${rows.length===1?'':'s'} shown`;
+  body.innerHTML = rows.map(({e,p,ac})=>`
+    <tr class="rowclick" data-emp="${e.id}">
+      <td>${avatarHtml(e)}</td>
+      <td class="mono">${e.id}</td>
+      <td>${e.name}${deputationPill(e)}</td>
+      <td>${p ? p.designation : '<span class="pill gray">No active posting</span>'}</td>
+      <td>${p ? p.zone+' · '+p.section : '—'}</td>
+      <td class="col-charge">${ac.length ? ac.map(c=>`<span class="pill blue">${c.role}</span>`).join(' ') : '—'}</td>
+    </tr>`).join('');
+  body.querySelectorAll('tr.rowclick').forEach(tr=> tr.addEventListener('click', ()=>openDrawer(tr.dataset.emp)));
+}
+document.getElementById('searchBox').addEventListener('input', renderDirectory);
+zoneFilterEl.addEventListener('change', renderDirectory);
+desigFilterEl.addEventListener('change', renderDirectory);
+categoryFilterEl.addEventListener('change', renderDirectory);
+sectionFilterEl.addEventListener('change', renderDirectory);
+
+/* ---------------- Export: Excel & PDF ---------------- */
+function scopeLabel(){ return currentUser.role==='zonehr' ? currentUser.zone : 'All zones'; }
+function exportRowsData(){
+  return getDirectoryRows().map(({e,p,ac})=>({
+    'Emp ID': e.id, 'Name': e.name, 'Category': e.category,
+    'Designation': p ? p.designation : '', 'Zone': p ? p.zone : '', 'Section': p ? p.section : '',
+    'Additional Charge / Work Allocation': ac.map(c=>c.role).join('; '),
+    'Date of Joining': e.doj, 'Phone': e.phone || '', 'Email': e.email || '', 'Native Location': e.native || ''
+  }));
+}
+document.getElementById('btnExportExcel').addEventListener('click', ()=>{
+  if(typeof XLSX === 'undefined'){ toast('Excel library still loading — try again in a moment.'); return; }
+  const data = exportRowsData();
+  if(!data.length){ toast('No rows to export for the current filters.'); return; }
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws['!cols'] = Object.keys(data[0]).map(k=>({wch: Math.max(12, k.length+2)}));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Employees');
+  XLSX.writeFile(wb, `SCMC_Employee_Directory_${scopeLabel().replace(/[^a-z0-9]+/gi,'_')}.xlsx`);
+  toast(`Exported ${data.length} rows to Excel.`);
+});
+document.getElementById('btnExportPDF').addEventListener('click', ()=>{
+  if(typeof window.jspdf === 'undefined'){ toast('PDF library still loading — try again in a moment.'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'landscape' });
+  const rows = getDirectoryRows();
+  if(!rows.length){ toast('No rows to export for the current filters.'); return; }
+  doc.setFontSize(14); doc.text('SCMC Employee Directory', 14, 15);
+  doc.setFontSize(9); doc.setTextColor(100);
+  doc.text(`Scope: ${scopeLabel()}  ·  Generated ${new Date().toLocaleDateString('en-IN')}  ·  ${rows.length} employees`, 14, 21);
+  const body = rows.map(({e,p,ac})=>[e.id, e.name, e.category, p?p.designation:'—', p?p.zone:'—', p?p.section:'—', ac.map(c=>c.role).join(', ')||'—']);
+  doc.autoTable({
+    startY:26,
+    head:[['Emp ID','Name','Category','Designation','Zone','Section','Additional Charge / Work Allocation']],
+    body,
+    styles:{fontSize:8, cellPadding:2.2},
+    headStyles:{fillColor:[47,95,224], textColor:255},
+    alternateRowStyles:{fillColor:[247,249,252]},
+  });
+  doc.save(`SCMC_Employee_Directory_${scopeLabel().replace(/[^a-z0-9]+/gi,'_')}.pdf`);
+  toast(`Exported ${rows.length} rows to PDF.`);
+});
+
+/* ---------------- Photo picker helper ---------------- */
+function photoFieldHtml(existingPhoto){
+  return `<div class="field"><label>Photo</label><div class="photo-row">
+    ${existingPhoto ? `<img class="avatar" id="photoPreview" src="${existingPhoto}">` : `<div class="avatar-fallback" id="photoPreview">?</div>`}
+    <input type="file" id="photoInput" accept="image/*"></div></div>`;
+}
+function wirePhotoInput(){
+  const input = document.getElementById('photoInput');
+  if(!input) return;
+  input.addEventListener('change', (e)=>{
+    const file = e.target.files[0]; if(!file) return;
+    if(file.size > 2*1024*1024){ toast('Please choose an image under 2MB.'); return; }
+    const reader = new FileReader();
+    reader.onload = ()=>{ const dataUrl = reader.result; document.getElementById('photoPreview').outerHTML = `<img class="avatar" id="photoPreview" src="${dataUrl}">`; input.dataset.value = dataUrl; };
+    reader.readAsDataURL(file);
+  });
+}
+function currentPhotoValue(){ const input = document.getElementById('photoInput'); return input ? (input.dataset.value || null) : null; }
+
+/* ---------------- Deputation field (shared by Add/Edit employee modals) ---------------- */
+function deputationFieldHtml(dep){
+  const type = dep ? dep.type : '';
+  const org = dep ? dep.org : '';
+  return `
+    <div class="field"><label>Deputation status</label>
+      <select id="dep_type">
+        <option value="" ${type===''?'selected':''}>Not on deputation</option>
+        <option value="out" ${type==='out'?'selected':''}>Deputed OUT — works at another corporation, still counts here</option>
+        <option value="in" ${type==='in'?'selected':''}>Deputed IN — from another corporation, does not count here</option>
+      </select>
+    </div>
+    <div class="field" id="dep_org_field" style="display:${type?'block':'none'};">
+      <label>Other corporation</label>
+      <input type="text" id="dep_org" value="${org||''}" placeholder="e.g. Erode Municipal Corporation">
+    </div>`;
+}
+function wireDeputationField(){
+  const sel = document.getElementById('dep_type');
+  sel.addEventListener('change', ()=>{
+    document.getElementById('dep_org_field').style.display = sel.value ? 'block' : 'none';
+  });
+}
+function readDeputationFromForm(){
+  const type = document.getElementById('dep_type').value;
+  if(!type) return null;
+  const org = document.getElementById('dep_org').value.trim();
+  return {type, org};
+}
+
+/* ---------------- Drawer ---------------- */
+let drawerEmpId = null;
+function openDrawer(empId){
+  drawerEmpId = empId;
+  const e = employees.find(x=>x.id===empId);
+  document.getElementById('drawerAvatarWrap').innerHTML = avatarHtml(e, 58);
+  document.getElementById('drawerName').textContent = e.name;
+  document.getElementById('drawerId').textContent = e.id;
+  document.getElementById('drawerFields').innerHTML = `
+    <div><label>Category</label><span>${e.category}</span></div>
+    <div><label>Date of joining</label><span>${fmtDate(e.doj)}</span></div>
+    <div><label>Date of birth</label><span>${fmtDate(e.dob)}</span></div>
+    <div><label>Native location</label><span>${e.native||'—'}</span></div>
+    <div><label>Phone</label><span>${e.phone||'—'}</span></div>
+    <div><label>Email</label><span>${e.email||'—'}</span></div>
+    <div><label>Deputation</label><span>${e.deputation ? (e.deputation.type==='out'?'Deputed out to '+(e.deputation.org||'—'):'Deputed in from '+(e.deputation.org||'—')) : 'None'}</span></div>`;
+  const hist = postings.filter(p=>p.empId===empId).sort((a,b)=>b.start.localeCompare(a.start));
+  document.getElementById('drawerPostings').innerHTML = hist.length ? hist.map(p=>`
+    <div class="history-row"><div><b>${p.designation}</b><br><span style="color:var(--ink-faint)">${p.zone} · ${p.section}</span></div>
+    <div style="text-align:right; white-space:nowrap;">${fmtDate(p.start)} – ${p.end?fmtDate(p.end):'<span class="pill green">Current</span>'}</div></div>`).join('')
+    : '<div class="empty">No postings recorded.</div>';
+  const ac = charges.filter(c=>c.empId===empId).sort((a,b)=>b.start.localeCompare(a.start));
+  document.getElementById('drawerCharges').innerHTML = ac.length ? ac.map(c=>`
+    <div class="history-row"><div><b>${c.role}</b><br><span style="color:var(--ink-faint)">${c.zone} · ${c.section}</span></div>
+    <div style="text-align:right; white-space:nowrap;">${fmtDate(c.start)} – ${c.end?fmtDate(c.end):'<span class="pill green">Current</span>'}</div></div>`).join('')
+    : '<div class="empty">No additional charges or work allocations.</div>';
+  const sc = schemes.filter(s=>s.empId===empId).sort((a,b)=>b.start.localeCompare(a.start));
+  document.getElementById('drawerSchemes').innerHTML = sc.length ? sc.map(s=>`
+    <div class="history-row"><div><b>${s.scheme}</b></div>
+    <div style="text-align:right; white-space:nowrap;">${fmtDate(s.start)} – ${s.end?fmtDate(s.end):'<span class="pill green">Current</span>'}</div></div>`).join('')
+    : '<div class="empty">No work/scheme assignments.</div>';
+  document.getElementById('drawerOverlay').classList.add('open');
+}
+document.getElementById('closeDrawer').addEventListener('click', ()=>document.getElementById('drawerOverlay').classList.remove('open'));
+document.getElementById('drawerOverlay').addEventListener('click',(e)=>{ if(e.target.id==='drawerOverlay') e.currentTarget.classList.remove('open'); });
+
+/* ---------------- Modals ---------------- */
+function openModal(html, wide){
+  const m = document.getElementById('modalBody');
+  m.className = 'modal'+(wide?' wide':'');
+  m.innerHTML = html;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); }
+document.getElementById('modalOverlay').addEventListener('click',(e)=>{ if(e.target.id==='modalOverlay') closeModal(); });
+function confirmModal(title, msg, onYes){
+  openModal(`<h3>${title}</h3><div class="hint">${msg}</div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn danger" id="confirmYes">Delete</button></div>`);
+  document.getElementById('confirmYes').addEventListener('click', ()=>{ onYes(); closeModal(); });
+}
+
+/* -- Add employee -- */
+document.getElementById('btnAddEmployee').addEventListener('click', ()=>{
+  const vz = visibleZones(); const lockZone = currentUser.role==='zonehr';
+  openModal(`
+    <h3>Add employee</h3>
+    <div class="hint">Creates the person record plus their first posting.</div>
+    ${photoFieldHtml(null)}
+    <div class="field"><label>Full name</label><input type="text" id="f_name"></div>
+    <div class="field"><label>Category</label><select id="f_cat">${CATEGORIES.map(c=>`<option>${c}</option>`).join('')}</select></div>
+    <div class="field"><label>Designation</label><select id="f_desig">${DESIGNATIONS.map(d=>`<option>${d}</option>`).join('')}</select></div>
+    <div class="field"><label>Zone</label><select id="f_zone" ${lockZone?'disabled':''}>${vz.map(z=>`<option>${z}</option>`).join('')}</select></div>
+    <div class="field"><label>Section</label><select id="f_section">${SECTIONS.map(s=>`<option>${s}</option>`).join('')}</select></div>
+    <div class="field"><label>Date of joining</label><input type="date" id="f_doj"></div>
+    <div class="field"><label>Phone</label><input type="text" id="f_phone"></div>
+    ${deputationFieldHtml(null)}
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="saveEmployee">Save employee</button></div>
+  `);
+  wirePhotoInput();
+  wireDeputationField();
+  document.getElementById('saveEmployee').addEventListener('click', async ()=>{
+    const name=document.getElementById('f_name').value.trim(); const doj=document.getElementById('f_doj').value;
+    if(!name||!doj){ toast('Name and date of joining are required.'); return; }
+    const dep = readDeputationFromForm();
+    const phone = document.getElementById('f_phone').value;
+    const category = document.getElementById('f_cat').value;
+    const photo = currentPhotoValue();
+    let id;
+    if(backendConfigured()){
+      const res = await apiCall('addEmployee', {name,dob:"",doj,native:"",phone,email:"",category,photo:photo||'',depType:dep?dep.type:'',depOrg:dep?dep.org:''});
+      if(!res.ok){ toast('Could not save to server — try again.'); return; }
+      id = res.data.id;
+    } else { seq.emp++; id = "SCM-"+pad(seq.emp); }
+    employees.push({id,name,dob:"",doj,native:"",phone,email:"",category,photo,deputation:dep});
+    const designation = document.getElementById('f_desig').value||'Unassigned';
+    const zone = lockZone?currentUser.zone:document.getElementById('f_zone').value;
+    const section = document.getElementById('f_section').value;
+    let pstId;
+    if(backendConfigured()){
+      const pres = await apiCall('addPosting', {empId:id, designation, zone, section, start:doj, end:''});
+      pstId = pres.ok ? pres.data.id : ("PST-"+Date.now());
+    } else { seq.pst++; pstId = "PST-"+pad(seq.pst); }
+    postings.push({id:pstId, empId:id, designation, zone, section, start:doj, end:null});
+    closeModal(); renderDirectory(); renderDashboard(); toast(`${name} added as ${id}.`);
+  });
+});
+
+/* -- Edit employee -- */
+document.getElementById('btnEditEmployee').addEventListener('click', ()=>{
+  const e = employees.find(x=>x.id===drawerEmpId);
+  openModal(`
+    <h3>Edit employee details</h3>
+    <div class="hint">Zone/designation changes go through "Record transfer" instead, so history stays intact.</div>
+    ${photoFieldHtml(e.photo)}
+    <div class="field"><label>Full name</label><input type="text" id="e_name" value="${e.name}"></div>
+    <div class="field"><label>Category</label><select id="e_cat">${CATEGORIES.map(c=>`<option ${c===e.category?'selected':''}>${c}</option>`).join('')}</select></div>
+    <div class="field"><label>Date of birth</label><input type="date" id="e_dob" value="${e.dob||''}"></div>
+    <div class="field"><label>Native location</label><input type="text" id="e_native" value="${e.native||''}"></div>
+    <div class="field"><label>Phone</label><input type="text" id="e_phone" value="${e.phone||''}"></div>
+    <div class="field"><label>Email</label><input type="text" id="e_email" value="${e.email||''}"></div>
+    ${deputationFieldHtml(e.deputation)}
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="saveEditEmployee">Save changes</button></div>
+  `);
+  wirePhotoInput();
+  wireDeputationField();
+  document.getElementById('saveEditEmployee').addEventListener('click', ()=>{
+    e.name=document.getElementById('e_name').value.trim()||e.name;
+    e.category=document.getElementById('e_cat').value; e.dob=document.getElementById('e_dob').value;
+    e.native=document.getElementById('e_native').value; e.phone=document.getElementById('e_phone').value; e.email=document.getElementById('e_email').value;
+    e.deputation = readDeputationFromForm();
+    const newPhoto = currentPhotoValue(); if(newPhoto) e.photo = newPhoto;
+    if(backendConfigured()) persist('updateEmployee', {id:e.id, fields:{name:e.name, category:e.category, dob:e.dob, native:e.native, phone:e.phone, email:e.email, photo:e.photo||'', depType:e.deputation?e.deputation.type:'', depOrg:e.deputation?e.deputation.org:''}});
+    closeModal(); openDrawer(e.id); renderDirectory(); toast('Employee details updated.');
+  });
+});
+
+/* -- Delete employee -- */
+document.getElementById('btnDeleteEmployee').addEventListener('click', ()=>{
+  const e = employees.find(x=>x.id===drawerEmpId);
+  confirmModal('Delete employee', `Permanently delete ${e.name} (${e.id})? This also removes all their postings, additional charges/work allocations and work/scheme assignments.`, ()=>{
+    employees = employees.filter(x=>x.id!==e.id);
+    postings = postings.filter(x=>x.empId!==e.id);
+    charges = charges.filter(x=>x.empId!==e.id);
+    schemes = schemes.filter(x=>x.empId!==e.id);
+    if(backendConfigured()) persist('deleteEmployee', {id:e.id}); // backend cascades postings/charges/schemes too
+    document.getElementById('drawerOverlay').classList.remove('open');
+    renderAll(); toast(`${e.name} deleted.`);
+  });
+});
+
+/* -- Transfer -- */
+document.getElementById('btnTransfer').addEventListener('click', ()=>{
+  const cur = currentPosting(drawerEmpId); const vz = visibleZones(); const lockZone = currentUser.role==='zonehr';
+  openModal(`
+    <h3>Record transfer</h3>
+    <div class="hint">Closes the current posting and opens a new one — history is kept, nothing overwritten.</div>
+    <div class="field"><label>Current posting</label><input type="text" value="${cur?cur.designation+' · '+cur.zone:'None'}" disabled></div>
+    <div class="field"><label>New designation</label><select id="t_desig">${DESIGNATIONS.map(d=>`<option ${cur&&cur.designation===d?'selected':''}>${d}</option>`).join('')}</select></div>
+    <div class="field"><label>New zone</label><select id="t_zone" ${lockZone?'disabled':''}>${(lockZone?[currentUser.zone]:vz).map(z=>`<option ${cur&&cur.zone===z?'selected':''}>${z}</option>`).join('')}</select></div>
+    <div class="field"><label>New section</label><select id="t_section">${SECTIONS.map(s=>`<option ${cur&&cur.section===s?'selected':''}>${s}</option>`).join('')}</select></div>
+    <div class="field"><label>Effective date</label><input type="date" id="t_date"></div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="saveTransfer">Confirm transfer</button></div>
+  `);
+  document.getElementById('saveTransfer').addEventListener('click', async ()=>{
+    const date=document.getElementById('t_date').value;
+    if(!date){ toast('Effective date is required.'); return; }
+    if(cur){ cur.end=date; if(backendConfigured()) persist('closePosting', {id:cur.id, end:date}); }
+    const designation = document.getElementById('t_desig').value;
+    const zone = lockZone?currentUser.zone:document.getElementById('t_zone').value;
+    const section = document.getElementById('t_section').value;
+    let pstId;
+    if(backendConfigured()){
+      const res = await apiCall('addPosting', {empId:drawerEmpId, designation, zone, section, start:date, end:''});
+      pstId = res.ok ? res.data.id : ("PST-"+Date.now());
+    } else { seq.pst++; pstId = "PST-"+pad(seq.pst); }
+    postings.push({id:pstId, empId:drawerEmpId, designation, zone, section, start:date, end:null});
+    closeModal(); openDrawer(drawerEmpId); renderDirectory(); renderDashboard(); toast('Transfer recorded.');
+  });
+});
+
+document.getElementById('btnAddPastRecord').addEventListener('click', ()=>{
+  const vz = visibleZones(); const lockZone = currentUser.role==='zonehr';
+  openModal(`
+    <h3>Add past posting record</h3>
+    <div class="hint">Backfills a posting that already ended — for history that was never entered at the time. This does not touch the employee's current posting.</div>
+    <div class="field"><label>Designation</label><select id="pr_desig">${DESIGNATIONS.map(d=>`<option>${d}</option>`).join('')}</select></div>
+    <div class="field"><label>Zone</label><select id="pr_zone" ${lockZone?'disabled':''}>${(lockZone?[currentUser.zone]:vz).map(z=>`<option>${z}</option>`).join('')}</select></div>
+    <div class="field"><label>Section</label><select id="pr_section">${SECTIONS.map(s=>`<option>${s}</option>`).join('')}</select></div>
+    <div class="field"><label>Start date</label><input type="date" id="pr_start"></div>
+    <div class="field"><label>End date</label><input type="date" id="pr_end"></div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="savePastRecord">Save past record</button></div>
+  `);
+  document.getElementById('savePastRecord').addEventListener('click', async ()=>{
+    const start = document.getElementById('pr_start').value;
+    const end = document.getElementById('pr_end').value;
+    if(!start || !end){ toast('Both start and end dates are required for a past record.'); return; }
+    if(end < start){ toast('End date must be on or after the start date.'); return; }
+    const designation = document.getElementById('pr_desig').value;
+    const zone = lockZone?currentUser.zone:document.getElementById('pr_zone').value;
+    const section = document.getElementById('pr_section').value;
+    let pstId;
+    if(backendConfigured()){
+      const res = await apiCall('addPosting', {empId:drawerEmpId, designation, zone, section, start, end});
+      pstId = res.ok ? res.data.id : ("PST-"+Date.now());
+    } else { seq.pst++; pstId = "PST-"+pad(seq.pst); }
+    postings.push({id:pstId, empId:drawerEmpId, designation, zone, section, start, end});
+    closeModal(); openDrawer(drawerEmpId); renderDirectory(); renderDashboard(); toast('Past record added to posting history.');
+  });
+});
+
+/* ---------------- Charges (edit/delete) ---------------- */
+function renderCharges(){
+  const vz = visibleZones();
+  const body=document.getElementById('chargesBody');
+  const rows=charges.filter(c=>vz.includes(c.zone)).sort((a,b)=>(a.end?1:0)-(b.end?1:0));
+  body.innerHTML = rows.map(c=>`
+    <tr><td>${empName(c.empId)} <span class="mono" style="color:var(--ink-faint)">(${c.empId})</span></td>
+    <td>${c.role}</td><td>${c.zone} · ${c.section}</td><td>${fmtDate(c.start)}</td>
+    <td>${c.end?`<span class="pill red">Closed ${fmtDate(c.end)}</span>`:'<span class="pill green">Current</span>'}</td>
+    <td><div class="row-actions">
+      ${c.end?'':`<button class="btn ghost small" data-close-charge="${c.id}">End</button>`}
+      <button class="btn ghost small" data-edit-charge="${c.id}">Edit</button>
+      <button class="btn danger small" data-del-charge="${c.id}">Delete</button>
+    </div></td></tr>`).join('');
+  body.querySelectorAll('[data-close-charge]').forEach(b=> b.addEventListener('click', ()=>{
+    const c = charges.find(x=>x.id===b.dataset.closeCharge); c.end=new Date().toISOString().slice(0,10);
+    if(backendConfigured()) persist('endCharge', {id:c.id, end:c.end});
+    renderCharges(); renderDashboard(); toast('Charge / work allocation ended.');
+  }));
+  body.querySelectorAll('[data-del-charge]').forEach(b=> b.addEventListener('click', ()=>{
+    confirmModal('Delete charge', 'Remove this additional-charge record entirely?', ()=>{
+      charges = charges.filter(x=>x.id!==b.dataset.delCharge);
+      if(backendConfigured()) persist('deleteCharge', {id:b.dataset.delCharge});
+      renderCharges(); renderDashboard(); toast('Charge deleted.');
+    });
+  }));
+  body.querySelectorAll('[data-edit-charge]').forEach(b=> b.addEventListener('click', ()=> openEditCharge(b.dataset.editCharge)));
+}
+function chargeModalFields(c){
+  const vz = visibleZones();
+  return `
+    <div class="field"><label>Employee</label><select id="c_emp" ${c?'disabled':''}>${employees.filter(e=>empInScope(e.id)).map(e=>`<option value="${e.id}" ${c&&c.empId===e.id?'selected':''}>${e.name} (${e.id})</option>`).join('')}</select></div>
+    <div class="field"><label>Role title</label><input type="text" id="c_role" value="${c?c.role:''}" placeholder="e.g. In-charge, Zone 2 Accounts"></div>
+    <div class="field"><label>Zone</label><select id="c_zone">${vz.map(z=>`<option ${c&&c.zone===z?'selected':''}>${z}</option>`).join('')}</select></div>
+    <div class="field"><label>Section</label><select id="c_section">${SECTIONS.map(s=>`<option ${c&&c.section===s?'selected':''}>${s}</option>`).join('')}</select></div>
+    <div class="field"><label>Start date</label><input type="date" id="c_start" value="${c?c.start:''}"></div>`;
+}
+document.getElementById('btnAddCharge').addEventListener('click', ()=>{
+  openModal(`<h3>Assign charge / work allocation</h3><div class="hint">Held alongside the employee's real posting — doesn't replace it. Use this for formal in-charge appointments as well as informal work allocations (e.g. a Sanitary Worker covering a Junior Assistant seat).</div>${chargeModalFields(null)}
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="saveCharge">Assign</button></div>`);
+  document.getElementById('saveCharge').addEventListener('click', async ()=>{
+    const role=document.getElementById('c_role').value.trim(); const start=document.getElementById('c_start').value;
+    if(!role||!start){ toast('Role and start date are required.'); return; }
+    const empId=document.getElementById('c_emp').value, zone=document.getElementById('c_zone').value, section=document.getElementById('c_section').value;
+    let id;
+    if(backendConfigured()){
+      const res = await apiCall('addCharge', {empId, role, zone, section, start, end:''});
+      id = res.ok ? res.data.id : ("CHG-"+Date.now());
+    } else { seq.chg++; id = "CHG-"+pad(seq.chg); }
+    charges.push({id, empId, role, zone, section, start, end:null});
+    closeModal(); renderCharges(); renderDashboard(); toast('Charge / work allocation assigned.');
+  });
+});
+function openEditCharge(id){
+  const c = charges.find(x=>x.id===id);
+  openModal(`<h3>Edit charge / work allocation</h3>${chargeModalFields(c)}
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="saveEditCharge">Save changes</button></div>`);
+  document.getElementById('saveEditCharge').addEventListener('click', ()=>{
+    c.role=document.getElementById('c_role').value.trim(); c.zone=document.getElementById('c_zone').value;
+    c.section=document.getElementById('c_section').value; c.start=document.getElementById('c_start').value;
+    if(backendConfigured()) persist('updateCharge', {id:c.id, fields:{role:c.role, zone:c.zone, section:c.section, start:c.start}});
+    closeModal(); renderCharges(); renderDashboard(); toast('Charge updated.');
+  });
+}
+
+/* ---------------- Work/Scheme (edit/delete) ---------------- */
+function renderSchemes(){
+  const scopedEmpIds = employees.filter(e=>empInScope(e.id)).map(e=>e.id);
+  const body=document.getElementById('schemesBody');
+  const rows=schemes.filter(s=>scopedEmpIds.includes(s.empId)).sort((a,b)=>(a.end?1:0)-(b.end?1:0));
+  body.innerHTML = rows.map(s=>`
+    <tr><td>${s.scheme}</td><td>${empName(s.empId)} <span class="mono" style="color:var(--ink-faint)">(${s.empId})</span></td>
+    <td>${fmtDate(s.start)}</td><td>${s.end?`<span class="pill red">Closed ${fmtDate(s.end)}</span>`:'<span class="pill green">Current</span>'}</td>
+    <td><div class="row-actions">
+      ${s.end?'':`<button class="btn ghost small" data-close-scheme="${s.id}">End</button>`}
+      <button class="btn ghost small" data-edit-scheme="${s.id}">Edit</button>
+      <button class="btn danger small" data-del-scheme="${s.id}">Delete</button>
+    </div></td></tr>`).join('');
+  body.querySelectorAll('[data-close-scheme]').forEach(b=> b.addEventListener('click', ()=>{
+    const s = schemes.find(x=>x.id===b.dataset.closeScheme); s.end=new Date().toISOString().slice(0,10);
+    if(backendConfigured()) persist('endScheme', {id:s.id, end:s.end});
+    renderSchemes(); renderDashboard(); toast('Assignment ended.');
+  }));
+  body.querySelectorAll('[data-del-scheme]').forEach(b=> b.addEventListener('click', ()=>{
+    confirmModal('Delete assignment', 'Remove this work/scheme assignment entirely?', ()=>{
+      schemes = schemes.filter(x=>x.id!==b.dataset.delScheme);
+      if(backendConfigured()) persist('deleteScheme', {id:b.dataset.delScheme});
+      renderSchemes(); renderDashboard(); toast('Assignment deleted.');
+    });
+  }));
+  body.querySelectorAll('[data-edit-scheme]').forEach(b=> b.addEventListener('click', ()=> openEditScheme(b.dataset.editScheme)));
+}
+function schemeModalFields(s){
+  return `
+    <div class="field"><label>Work / Scheme name</label><input type="text" id="s_name" value="${s?s.scheme:''}" placeholder="e.g. AMRUT 2.0"></div>
+    <div class="field"><label>Assigned officer</label><select id="s_emp" ${s?'disabled':''}>${employees.filter(e=>empInScope(e.id)).map(e=>`<option value="${e.id}" ${s&&s.empId===e.id?'selected':''}>${e.name} (${e.id})</option>`).join('')}</select></div>
+    <div class="field"><label>Start date</label><input type="date" id="s_start" value="${s?s.start:''}"></div>`;
+}
+document.getElementById('btnAddScheme').addEventListener('click', ()=>{
+  openModal(`<h3>Assign work / scheme</h3>${schemeModalFields(null)}
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="saveScheme">Assign</button></div>`);
+  document.getElementById('saveScheme').addEventListener('click', async ()=>{
+    const name=document.getElementById('s_name').value.trim(); const start=document.getElementById('s_start').value;
+    if(!name||!start){ toast('Name and start date are required.'); return; }
+    const empId=document.getElementById('s_emp').value;
+    let id;
+    if(backendConfigured()){
+      const res = await apiCall('addScheme', {scheme:name, empId, start, end:''});
+      id = res.ok ? res.data.id : ("SCH-"+Date.now());
+    } else { seq.sch++; id = "SCH-"+pad(seq.sch); }
+    schemes.push({id, scheme:name, empId, start, end:null});
+    closeModal(); renderSchemes(); renderDashboard(); toast('Work/scheme assignment recorded.');
+  });
+});
+function openEditScheme(id){
+  const s = schemes.find(x=>x.id===id);
+  openModal(`<h3>Edit work/scheme assignment</h3>${schemeModalFields(s)}
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="saveEditScheme">Save changes</button></div>`);
+  document.getElementById('saveEditScheme').addEventListener('click', ()=>{
+    s.scheme=document.getElementById('s_name').value.trim(); s.start=document.getElementById('s_start').value;
+    if(backendConfigured()) persist('updateScheme', {id:s.id, fields:{scheme:s.scheme, start:s.start}});
+    closeModal(); renderSchemes(); renderDashboard(); toast('Assignment updated.');
+  });
+}
+
+/* =================================================================
+   VACANCY — sanctioned vs filled comparison, by zone + designation
+==================================================================*/
+let vacancyScope = 'Overall'; // 'Overall' or a specific zone name
+
+function getVacancyRows(scopeZone){
+  const vz = visibleZones();
+  const zonesToUse = scopeZone ? [scopeZone] : vz; // Overall = aggregate every visible zone
+  const combos = new Map(); // keyed by designation only — zone is now conveyed by the chip, not the row
+  sanctionedPosts.filter(sp=>zonesToUse.includes(sp.zone)).forEach(sp=>{
+    const key = sp.designation;
+    if(!combos.has(key)) combos.set(key, {designation:sp.designation, sanctioned:0, filled:0});
+    combos.get(key).sanctioned += sp.sanctioned;
+  });
+  postings.filter(p=>!p.end && zonesToUse.includes(p.zone)).forEach(p=>{
+    const emp = employees.find(x=>x.id===p.empId);
+    // "Deputed in" staff are borrowed from another corporation and hold no sanctioned post here —
+    // they don't count toward the filled figure. "Deputed out" staff still hold their post here
+    // (just physically posted elsewhere) so they count normally, same as regular staff.
+    if(emp && emp.deputation && emp.deputation.type==='in') return;
+    const key = p.designation;
+    if(!combos.has(key)) combos.set(key, {designation:p.designation, sanctioned:0, filled:0});
+    combos.get(key).filled++;
+  });
+  return [...combos.values()].sort((a,b)=> a.designation.localeCompare(b.designation));
+}
+function statusPillFor(designation, sanctioned, filled){
+  const diff = sanctioned - filled;
+  if(sanctioned===0 && (FIELD_DESIGNATIONS.includes(designation) || INTERNAL_DESIGNATIONS.includes(designation))){
+    return INTERNAL_DESIGNATIONS.includes(designation)
+      ? '<span class="pill gray">Internal use — not in G.O. 152</span>'
+      : '<span class="pill gray">Not covered by G.O. 152</span>';
+  }
+  if(diff>0) return `<span class="pill orange">${diff} vacant</span>`;
+  if(diff<0) return `<span class="pill" style="background:var(--purple-soft); color:var(--purple);">${-diff} excess</span>`;
+  return '<span class="pill green">Fully staffed</span>';
+}
+function renderVacancy(){
+  const vz = visibleZones();
+  // Chips: Overall (only meaningful with >1 visible zone) + one per visible zone
+  const chipList = vz.length>1 ? ['Overall', ...vz] : [...vz];
+  if(!chipList.includes(vacancyScope)) vacancyScope = chipList[0];
+  document.getElementById('vacancyScopeChips').innerHTML = chipList.map(c=>`
+    <button class="scope-chip ${vacancyScope===c?'active':''}" data-scope="${c}">${c==='Overall'?'Overall':zoneShort(c)}</button>
+  `).join('');
+  document.querySelectorAll('.scope-chip').forEach(b=>{
+    b.addEventListener('click', ()=>{ vacancyScope = b.dataset.scope; renderVacancy(); });
+  });
+
+  const scopeZone = vacancyScope==='Overall' ? null : vacancyScope;
+  const rows = getVacancyRows(scopeZone);
+  const totalSanctioned = rows.reduce((s,r)=>s+r.sanctioned,0);
+  const totalFilled = rows.reduce((s,r)=>s+r.filled,0);
+  const totalVacant = rows.reduce((s,r)=>s+Math.max(0, r.sanctioned-r.filled),0);
+  const totalExcess = rows.reduce((s,r)=>s+Math.max(0, r.filled-r.sanctioned),0);
+  document.getElementById('vacancyStats').innerHTML = `
+    ${statCard('#E7EEFE','var(--blue)', iconBuilding(), totalSanctioned, 'Total sanctioned posts')}
+    ${statCard('#E4F8ED','var(--green)', iconPeople(), totalFilled, 'Total filled')}
+    ${statCard('#FEF3DD','var(--orange)', iconFlag(), totalVacant, 'Total vacant')}
+    ${statCard('#EFEBFF','var(--purple)', iconStar(), totalExcess, 'Total excess (over strength)')}
+  `;
+
+  const cadreRows = rows.filter(r=> !FIELD_DESIGNATIONS.includes(r.designation) && !INTERNAL_DESIGNATIONS.includes(r.designation));
+  const fieldRows = rows.filter(r=> FIELD_DESIGNATIONS.includes(r.designation) || INTERNAL_DESIGNATIONS.includes(r.designation));
+
+  function rowHtml(r){
+    const internalTag = INTERNAL_DESIGNATIONS.includes(r.designation) ? ' <span class="pill gray">Internal use</span>' : '';
+    const editBtn = (currentUser.role!=='zonehr' && scopeZone) ? `<button class="btn ghost small" data-edit-sanctioned="${scopeZone}||${r.designation}">Edit</button>` : '';
+    const serialTag = GO152_ORDER[r.designation] ? `<span class="mono" style="color:var(--ink-faint); margin-right:6px;">${GO152_ORDER[r.designation]}.</span>` : '';
+    return `<tr><td>${serialTag}${r.designation}${internalTag}</td><td>${r.sanctioned}</td><td>${r.filled}</td><td>${statusPillFor(r.designation, r.sanctioned, r.filled)}</td><td>${editBtn}</td></tr>`;
+  }
+  function renderCadreBodyGrouped(cadreList){
+    let html = '';
+    GO152_SECTIONS_IN_ORDER.forEach(sec=>{
+      const secRows = cadreList.filter(r=> GO152_SECTION[r.designation]===sec)
+        .sort((a,b)=> (GO152_ORDER[a.designation]||999) - (GO152_ORDER[b.designation]||999));
+      if(secRows.length){
+        html += `<tr class="section-divider"><td colspan="5">${sec}</td></tr>`;
+        html += secRows.map(rowHtml).join('');
+      }
+    });
+    const unmapped = cadreList.filter(r=> !GO152_SECTION[r.designation]);
+    if(unmapped.length){
+      html += `<tr class="section-divider"><td colspan="5">Other</td></tr>` + unmapped.sort((a,b)=>a.designation.localeCompare(b.designation)).map(rowHtml).join('');
+    }
+    return html || '<tr><td colspan="5" class="empty">No cadre data in this scope.</td></tr>';
+  }
+  document.getElementById('vacancyCadreBody').innerHTML = renderCadreBodyGrouped(cadreRows);
+  document.getElementById('vacancyFieldBody').innerHTML = fieldRows.length ? fieldRows.sort((a,b)=>a.designation.localeCompare(b.designation)).map(rowHtml).join('') : '<tr><td colspan="5" class="empty">No field/support staff in this scope.</td></tr>';
+
+  document.querySelectorAll('[data-edit-sanctioned]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const [zone, designation] = b.dataset.editSanctioned.split('||');
+      openSanctionedModal(zone, designation);
+    });
+  });
+}
+function openSanctionedModal(zone, designation){
+  const vz = visibleZones();
+  const existing = zone ? sanctionedPosts.find(sp=>sp.zone===zone && sp.designation===designation) : null;
+  openModal(`
+    <h3>${existing?'Edit':'Set'} sanctioned strength</h3>
+    <div class="hint">How many posts are officially authorised for this designation in this zone.</div>
+    <div class="field"><label>Zone</label><select id="sp_zone" ${zone?'disabled':''}>${vz.map(z=>`<option ${z===zone?'selected':''}>${z}</option>`).join('')}</select></div>
+    <div class="field"><label>Designation</label><select id="sp_desig" ${designation?'disabled':''}>${DESIGNATIONS.map(d=>`<option ${d===designation?'selected':''}>${d}</option>`).join('')}</select></div>
+    <div class="field"><label>Sanctioned count</label><input type="text" id="sp_count" value="${existing?existing.sanctioned:0}" inputmode="numeric"></div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="saveSanctioned">Save</button></div>
+  `);
+  document.getElementById('saveSanctioned').addEventListener('click', ()=>{
+    const z = zone || document.getElementById('sp_zone').value;
+    const d = designation || document.getElementById('sp_desig').value;
+    const count = parseInt(document.getElementById('sp_count').value, 10);
+    if(isNaN(count) || count<0){ toast('Enter a valid sanctioned count (0 or more).'); return; }
+    const found = sanctionedPosts.find(sp=>sp.zone===z && sp.designation===d);
+    if(found) found.sanctioned = count;
+    else sanctionedPosts.push({zone:z, designation:d, sanctioned:count});
+    if(backendConfigured()) persist('upsertSanctioned', {zone:z, designation:d, sanctioned:count});
+    closeModal(); renderVacancy(); toast('Sanctioned strength saved.');
+  });
+}
+document.getElementById('btnAddSanctioned').addEventListener('click', ()=> openSanctionedModal(null, null));
+
+/* =================================================================
+   BULK IMPORT
+==================================================================*/
+const REQUIRED_FIELDS = [
+  {key:'empId', label:'Emp ID (optional)'}, {key:'name', label:'Name *'},
+  {key:'designation', label:'Designation *'}, {key:'zone', label:'Zone *'},
+  {key:'section', label:'Section'}, {key:'doj', label:'Date of joining *'},
+  {key:'phone', label:'Phone'}, {key:'category', label:'Category'},
+];
+let importHeaders = [], importRows = [], mappedRows = [];
+function parseCSV(text){
+  const lines = text.split(/\r?\n/).filter(l=>l.trim().length);
+  return lines.map(line=>{
+    const out=[]; let cur=''; let inQ=false;
+    for(let i=0;i<line.length;i++){ const ch=line[i];
+      if(ch==='"'){ inQ=!inQ; continue; }
+      if(ch===','&&!inQ){ out.push(cur); cur=''; continue; }
+      cur+=ch;
+    }
+    out.push(cur); return out.map(s=>s.trim());
+  });
+}
+const SAMPLE_CSV = `EmpID,Name,Designation,Zone,Section,DOJ,Phone,Category
+,V. Anitha,Sanitary Worker,Zone-4 Kondalampatti,Public Health,2021-03-10,9944100020,Sanitary Worker
+,R. Balaji,DBC Worker,Zone-2 Hasthampatti,Public Health,2020-07-01,9944100021,DBC Worker
+SCM-0002,S. Vijayalakshmi,Senior Assistant,Main Office,Accounts,2010-07-19,9944100002,Regular`;
+document.getElementById('btnLoadSample').addEventListener('click', ()=>{ document.getElementById('csvText').value = SAMPLE_CSV; toast('Sample data loaded.'); });
+document.getElementById('fileInput').addEventListener('change', (e)=>{
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=> { document.getElementById('csvText').value = reader.result; toast('File loaded — review below.'); };
+  reader.readAsText(file);
+});
+function goToImportStep(n){
+  document.getElementById('importStep1').style.display = n===1 ? 'block' : 'none';
+  document.getElementById('importStep2').style.display = n===2 ? 'block' : 'none';
+  document.getElementById('importStep3').style.display = n===3 ? 'block' : 'none';
+  document.getElementById('step1lbl').classList.toggle('on', n===1);
+  document.getElementById('step2lbl').classList.toggle('on', n===2);
+  document.getElementById('step3lbl').classList.toggle('on', n===3);
+}
+document.getElementById('btnParseCsv').addEventListener('click', ()=>{
+  const text = document.getElementById('csvText').value.trim();
+  if(!text){ toast('Paste data or choose a file first.'); return; }
+  const grid = parseCSV(text);
+  if(grid.length<2){ toast('Need a header row plus at least one data row.'); return; }
+  importHeaders = grid[0]; importRows = grid.slice(1);
+  const guess = (label)=> importHeaders.findIndex(h=>h.toLowerCase().replace(/[^a-z]/g,'').includes(label));
+  const guesses = { empId: guess('empid'), name: guess('name'), designation: guess('designat'), zone: guess('zone'),
+    section: guess('section'), doj: guess('doj')>=0?guess('doj'):guess('join'), phone: guess('phone'), category: guess('categ') };
+  document.getElementById('colMap').innerHTML = REQUIRED_FIELDS.map(f=>`
+    <div><label>${f.label}</label><select data-field="${f.key}">
+      <option value="-1">— not in file —</option>
+      ${importHeaders.map((h,i)=>`<option value="${i}" ${guesses[f.key]===i?'selected':''}>${h}</option>`).join('')}
+    </select></div>`).join('');
+  goToImportStep(2);
+});
+document.getElementById('btnBackStep1').addEventListener('click', ()=>goToImportStep(1));
+document.getElementById('btnBackStep2').addEventListener('click', ()=>goToImportStep(2));
+document.getElementById('btnPreviewImport').addEventListener('click', ()=>{
+  const map = {};
+  document.querySelectorAll('#colMap select').forEach(sel=>{ map[sel.dataset.field] = parseInt(sel.value,10); });
+  if(map.name<0 || map.designation<0 || map.zone<0 || map.doj<0){ toast('Name, Designation, Zone and Date of joining must all be mapped.'); return; }
+  const vz = visibleZones();
+  mappedRows = importRows.map(r=>{
+    const get = (f)=> map[f]>=0 ? (r[map[f]]||'').trim() : '';
+    const empId = get('empId');
+    const row = { empId, name:get('name'), designation:get('designation'), zone:get('zone'), section:get('section'), doj:get('doj'), phone:get('phone'), category:get('category')||'Regular' };
+    const errs = [];
+    if(!row.name) errs.push('missing name');
+    if(!row.designation) errs.push('missing designation');
+    if(!ZONES.includes(row.zone)) errs.push('unrecognised zone');
+    else if(!vz.includes(row.zone)) errs.push('outside your zone access');
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(row.doj)) errs.push('DOJ must be YYYY-MM-DD');
+    row._status = errs.length ? 'error' : (row.empId && employees.some(e=>e.id===row.empId) ? 'update' : 'new');
+    row._errs = errs;
+    return row;
+  });
+  const okCount = mappedRows.filter(r=>r._status!=='error').length;
+  const errCount = mappedRows.length - okCount;
+  document.getElementById('previewSummary').innerHTML = `<span class="pill green">${okCount} ready</span> &nbsp; ${errCount ? `<span class="pill red">${errCount} with errors — will be skipped</span>` : ''}`;
+  document.getElementById('previewBody').innerHTML = mappedRows.map(r=>`
+    <tr><td>${r._status==='error' ? `<span class="pill red" title="${r._errs.join(', ')}">Error</span>` : r._status==='update' ? '<span class="pill orange">Update</span>' : '<span class="pill green">New</span>'}</td>
+    <td class="mono">${r.empId||'(auto)'}</td><td>${r.name||'—'}</td><td>${r.designation||'—'}</td><td>${r.zone||'—'}</td><td>${r.section||'—'}</td><td>${r.doj||'—'}</td></tr>`).join('');
+  document.getElementById('btnConfirmImport').disabled = okCount===0;
+  goToImportStep(3);
+});
+document.getElementById('btnConfirmImport').addEventListener('click', async ()=>{
+  const today = new Date().toISOString().slice(0,10);
+  const rowsToImport = mappedRows.filter(r=>r._status!=='error');
+
+  if(backendConfigured()){
+    const res = await apiCall('bulkImportEmployees', { rows: rowsToImport.map(r=>({empId:r.empId||undefined, name:r.name, designation:r.designation, zone:r.zone, section:r.section, doj:r.doj, phone:r.phone, category:r.category})) });
+    if(!res.ok){ toast('Bulk import failed to save to the server.'); return; }
+    await loadAllFromBackend(); // reload so IDs/postings match what the sheet actually saved
+    renderDirectory(); renderDashboard();
+    toast(`Import complete — ${res.data.added} added, ${res.data.updated} updated.`);
+    document.getElementById('csvText').value=''; goToImportStep(1);
+    return;
+  }
+
+  // Local-only demo mode (no backend configured yet)
+  let added=0, updated=0;
+  rowsToImport.forEach(r=>{
+    if(r._status==='update'){
+      const emp = employees.find(e=>e.id===r.empId);
+      emp.name=r.name; emp.phone=r.phone||emp.phone; emp.category=r.category||emp.category;
+      const cur = currentPosting(emp.id);
+      if(cur && (cur.designation!==r.designation || cur.zone!==r.zone)){
+        cur.end = today; seq.pst++;
+        postings.push({id:"PST-"+pad(seq.pst), empId:emp.id, designation:r.designation, zone:r.zone, section:r.section||cur.section, start:today, end:null});
+      }
+      updated++;
+    } else {
+      seq.emp++; const id = "SCM-"+pad(seq.emp);
+      employees.push({id, name:r.name, dob:"", doj:r.doj, native:"", phone:r.phone, email:"", category:r.category, photo:null});
+      seq.pst++;
+      postings.push({id:"PST-"+pad(seq.pst), empId:id, designation:r.designation, zone:r.zone, section:r.section||SECTIONS[0], start:r.doj, end:null});
+      added++;
+    }
+  });
+  renderDirectory(); renderDashboard();
+  toast(`Import complete — ${added} added, ${updated} updated.`);
+  document.getElementById('csvText').value=''; goToImportStep(1);
+});
+
+/* =================================================================
+   USER ACCESS (admin only)
+==================================================================*/
+function renderUsers(){
+  const body = document.getElementById('usersBody');
+  body.innerHTML = users.map(u=>`
+    <tr><td class="mono">${u.username}</td><td>${u.name}</td>
+    <td>${u.role==='admin'?'Administrator':u.role==='headoffice'?'Head Office HR (all zones)':'Zone HR'}</td>
+    <td>${u.role==='zonehr' ? `<select data-assign="${u.username}">${ZONES.map(z=>`<option ${u.zone===z?'selected':''}>${z}</option>`).join('')}</select>` : '<span style="color:var(--ink-faint)">All zones</span>'}</td>
+    <td>${u.username==='admin' ? '' : `<button class="btn danger small" data-del-user="${u.username}">Delete</button>`}</td></tr>`).join('');
+  body.querySelectorAll('[data-assign]').forEach(sel=> sel.addEventListener('change', ()=>{
+    users.find(u=>u.username===sel.dataset.assign).zone = sel.value;
+    if(backendConfigured()) persist('updateUserZone', {username:sel.dataset.assign, zone:sel.value});
+    toast(`Zone access updated for ${sel.dataset.assign}.`);
+  }));
+  body.querySelectorAll('[data-del-user]').forEach(b=> b.addEventListener('click', ()=>{
+    confirmModal('Remove account', `Remove HR account "${b.dataset.delUser}"?`, ()=>{
+      users = users.filter(u=>u.username!==b.dataset.delUser);
+      if(backendConfigured()) persist('deleteUser', {username:b.dataset.delUser});
+      renderUsers(); toast('Account removed.');
+    });
+  }));
+}
+document.getElementById('btnAddUser').addEventListener('click', ()=>{
+  openModal(`
+    <h3>Add HR account</h3>
+    <div class="field"><label>Username</label><input type="text" id="u_user"></div>
+    <div class="field"><label>Full name</label><input type="text" id="u_name"></div>
+    <div class="field"><label>Password</label><input type="text" id="u_pass" placeholder="temporary password"></div>
+    <div class="field"><label>Access level</label><select id="u_role">
+      <option value="zonehr">Zone HR — single zone</option>
+      <option value="headoffice">Head Office HR — all zones</option>
+    </select></div>
+    <div class="field" id="u_zone_field"><label>Zone</label><select id="u_zone">${ZONES.map(z=>`<option>${z}</option>`).join('')}</select></div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="saveUser">Create account</button></div>
+  `);
+  document.getElementById('u_role').addEventListener('change', (e)=>{ document.getElementById('u_zone_field').style.display = e.target.value==='zonehr' ? 'block' : 'none'; });
+  document.getElementById('saveUser').addEventListener('click', ()=>{
+    const username = document.getElementById('u_user').value.trim();
+    const name = document.getElementById('u_name').value.trim();
+    const password = document.getElementById('u_pass').value;
+    const role = document.getElementById('u_role').value;
+    if(!username || !name || !password){ toast('Username, name and password are required.'); return; }
+    if(users.some(u=>u.username===username)){ toast('That username is already in use.'); return; }
+    const zone = role==='zonehr' ? document.getElementById('u_zone').value : null;
+    users.push({username, password, name, role, zone});
+    if(backendConfigured()) persist('addUser', {username, password, name, role, zone:zone||''});
+    closeModal(); renderUsers(); toast(`Account created for ${name}.`);
+  });
+});
+
+/* =================================================================
+   SETTINGS — admin-managed dropdown lists (Designations/Sections/Categories)
+==================================================================*/
+const LIST_STORE = { designation: () => DESIGNATIONS, section: () => SECTIONS, category: () => CATEGORIES };
+function listRowHtml(kind, item){
+  return `<div class="history-row"><div>${item}</div>
+    <button class="btn danger small" data-del-item="${kind}" data-val="${item}">Remove</button></div>`;
+}
+function renderSettingsLists(){
+  document.getElementById('listDesignations').innerHTML = DESIGNATIONS.map(d=>listRowHtml('designation', d)).join('') || '<div class="empty">No designations yet.</div>';
+  document.getElementById('listSections').innerHTML = SECTIONS.map(s=>listRowHtml('section', s)).join('') || '<div class="empty">No sections yet.</div>';
+  document.getElementById('listCategories').innerHTML = CATEGORIES.map(c=>listRowHtml('category', c)).join('') || '<div class="empty">No categories yet.</div>';
+  document.querySelectorAll('[data-del-item]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const kind = b.dataset.delItem, val = b.dataset.val;
+      confirmModal('Remove '+kind, `Remove "${val}" from the ${kind} list? Existing records keep their current value — this only affects future dropdown choices.`, ()=>{
+        if(kind==='designation') DESIGNATIONS = DESIGNATIONS.filter(x=>x!==val);
+        if(kind==='section') SECTIONS = SECTIONS.filter(x=>x!==val);
+        if(kind==='category') CATEGORIES = CATEGORIES.filter(x=>x!==val);
+        if(backendConfigured()) persist('removeListItem', {type:kind, value:val});
+        renderSettingsLists(); toast(`"${val}" removed from ${kind} list.`);
+      });
+    });
+  });
+}
+document.querySelectorAll('[data-add-list]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const kind = btn.dataset.addList;
+    const inputId = kind==='designation' ? 'newDesigInput' : kind==='section' ? 'newSectionInput' : 'newCategoryInput';
+    const input = document.getElementById(inputId);
+    const val = input.value.trim();
+    if(!val){ toast('Type a name first.'); return; }
+    const arr = LIST_STORE[kind]();
+    if(arr.some(x=>x.toLowerCase()===val.toLowerCase())){ toast('That already exists in the list.'); return; }
+    if(kind==='designation') DESIGNATIONS.push(val);
+    if(kind==='section') SECTIONS.push(val);
+    if(kind==='category') CATEGORIES.push(val);
+    if(backendConfigured()) persist('addListItem', {type:kind, value:val});
+    input.value='';
+    renderSettingsLists(); toast(`"${val}" added to ${kind} list.`);
+  });
+});
+</script>
+</body>
+</html>
