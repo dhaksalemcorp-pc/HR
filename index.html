@@ -166,6 +166,16 @@
   .btn.danger:hover{background:#cf3439;}
   .btn.small{padding:5px 11px; font-size:12px;}
   .btn:disabled{opacity:0.4; cursor:not-allowed;}
+  .btn-spinner{
+    display:inline-block; width:12px; height:12px; margin-right:7px; vertical-align:-2px;
+    border:2px solid rgba(255,255,255,0.4); border-top-color:#fff; border-radius:50%;
+    animation:btn-spin 0.7s linear infinite;
+  }
+  .btn.ghost .btn-spinner, .btn.danger .btn-spinner{ border-color:rgba(21,32,54,0.2); border-top-color:var(--ink); }
+  .btn.danger .btn-spinner{ border-color:rgba(255,255,255,0.4); border-top-color:#fff; }
+  .btn.loading, .btn-signin.loading{ opacity:0.75 !important; cursor:wait !important; }
+  @keyframes btn-spin{ to{ transform:rotate(360deg); } }
+  .btn-signin .btn-spinner{ border-color:rgba(255,255,255,0.35); border-top-color:#fff; }
 
   .card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:0 1px 2px rgba(16,24,40,0.04);}
   table{width:100%; border-collapse:collapse; font-size:13px;}
@@ -737,6 +747,29 @@ function persist(action, payload){
   });
 }
 
+// Shared button-loading state — every button that awaits a backend response uses this,
+// so a click always visibly registers instead of silently doing nothing until it resolves.
+function setBtnLoading(btn, loadingText){
+  if(!btn || btn.dataset.origHtml!==undefined) return; // already loading, don't double-apply
+  btn.dataset.origHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.classList.add('loading');
+  btn.innerHTML = `<span class="btn-spinner"></span>${loadingText||'Working…'}`;
+}
+function clearBtnLoading(btn){
+  if(!btn || btn.dataset.origHtml===undefined) return;
+  btn.innerHTML = btn.dataset.origHtml;
+  delete btn.dataset.origHtml;
+  btn.disabled = false;
+  btn.classList.remove('loading');
+}
+// Wraps an async handler so the button always shows a loading state while it runs,
+// and always gets restored afterward (success, early return, or thrown error alike).
+async function withBtnLoading(btn, loadingText, fn){
+  setBtnLoading(btn, loadingText);
+  try{ await fn(); }
+  finally{ clearBtnLoading(btn); }
+}
 
 let employees = [
   {id:"SCM-0001", name:"R. Kumaresan", dob:"1978-06-14", doj:"2001-03-05", native:"Attur", phone:"9944100001", email:"kumaresan@salemcorp.example", category:"Regular", photo:null, deputation:null},
@@ -924,19 +957,24 @@ async function doLogin(){
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value;
   let match = null;
+  const btn = document.getElementById('btnLogin');
+  setBtnLoading(btn, 'Signing in…');
+  try{
+    if(backendConfigured()){
+      const res = await apiCall('login', {username:u, password:p});
+      if(res.ok && res.data) match = res.data;
+    }
+    if(!match){
+      match = users.find(x=>x.username===u && x.password===p) || null; // local demo fallback
+    }
+    if(!match){ document.getElementById('loginError').style.display='block'; return; }
+    document.getElementById('loginError').style.display='none';
+    currentUser = match; drillZone = null;
 
-  if(backendConfigured()){
-    const res = await apiCall('login', {username:u, password:p});
-    if(res.ok && res.data) match = res.data;
+    if(backendConfigured()) await loadAllFromBackend();
+  } finally {
+    clearBtnLoading(btn);
   }
-  if(!match){
-    match = users.find(x=>x.username===u && x.password===p) || null; // local demo fallback
-  }
-  if(!match){ document.getElementById('loginError').style.display='block'; return; }
-  document.getElementById('loginError').style.display='none';
-  currentUser = match; drillZone = null;
-
-  if(backendConfigured()) await loadAllFromBackend();
 
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('appShell').classList.add('on');
@@ -1288,8 +1326,20 @@ function openDrawer(empId){
   const hist = postings.filter(p=>p.empId===empId).sort((a,b)=>b.start.localeCompare(a.start));
   document.getElementById('drawerPostings').innerHTML = hist.length ? hist.map(p=>`
     <div class="history-row"><div><b>${p.designation}</b><br><span style="color:var(--ink-faint)">${p.zone} · ${p.section}</span></div>
-    <div style="text-align:right; white-space:nowrap;">${fmtDate(p.start)} – ${p.end?fmtDate(p.end):'<span class="pill green">Current</span>'}</div></div>`).join('')
+    <div style="text-align:right;">
+      <div style="white-space:nowrap;">${fmtDate(p.start)} – ${p.end?fmtDate(p.end):'<span class="pill green">Current</span>'}</div>
+      ${isAdmin() ? `<div style="margin-top:5px;"><button class="btn ghost small" data-edit-posting="${p.id}">Edit</button> <button class="btn danger small" data-del-posting="${p.id}">Delete</button></div>` : ''}
+    </div></div>`).join('')
     : '<div class="empty">No postings recorded.</div>';
+  document.querySelectorAll('[data-edit-posting]').forEach(b=> b.addEventListener('click', ()=> openEditPosting(b.dataset.editPosting)));
+  document.querySelectorAll('[data-del-posting]').forEach(b=> b.addEventListener('click', ()=>{
+    const pid = b.dataset.delPosting;
+    confirmModal('Delete posting record', 'Permanently remove this posting history entry? This cannot be undone.', ()=>{
+      postings = postings.filter(x=>x.id!==pid);
+      if(backendConfigured()) persist('deletePosting', {id:pid});
+      openDrawer(empId); renderDirectory(); renderDashboard(); toast('Posting record deleted.');
+    });
+  }));
   const ac = charges.filter(c=>c.empId===empId).sort((a,b)=>b.start.localeCompare(a.start));
   document.getElementById('drawerCharges').innerHTML = ac.length ? ac.map(c=>`
     <div class="history-row"><div><b>${c.role}</b><br><span style="color:var(--ink-faint)">${c.zone} · ${c.section}</span></div>
@@ -1346,6 +1396,9 @@ document.getElementById('btnAddEmployee').addEventListener('click', ()=>{
     const enteredId = document.getElementById('f_empid').value.trim();
     if(!enteredId){ toast('Emp ID is required.'); return; }
     if(employees.some(e=>e.id===enteredId)){ toast(`Emp ID "${enteredId}" is already in use — choose a different one.`); return; }
+    const btn = document.getElementById('saveEmployee');
+    setBtnLoading(btn, 'Saving…');
+    try{
     const dep = readDeputationFromForm();
     const phone = document.getElementById('f_phone').value;
     const category = document.getElementById('f_cat').value;
@@ -1371,6 +1424,7 @@ document.getElementById('btnAddEmployee').addEventListener('click', ()=>{
     } else { seq.pst++; pstId = "PST-"+pad(seq.pst); }
     postings.push({id:pstId, empId:id, designation, zone, section, start:doj, end:null});
     closeModal(); renderDirectory(); renderDashboard(); toast(`${name} added as ${id}.`);
+    } finally { clearBtnLoading(btn); }
   });
 });
 
@@ -1452,6 +1506,9 @@ document.getElementById('btnTransfer').addEventListener('click', ()=>{
   document.getElementById('saveTransfer').addEventListener('click', async ()=>{
     const date=document.getElementById('t_date').value;
     if(!date){ toast('Effective date is required.'); return; }
+    const btn = document.getElementById('saveTransfer');
+    setBtnLoading(btn, 'Saving…');
+    try{
     if(cur){ cur.end=date; if(backendConfigured()) persist('closePosting', {id:cur.id, end:date}); }
     const designation = document.getElementById('t_desig').value;
     const zone = lockZone?currentUser.zone:document.getElementById('t_zone').value;
@@ -1463,6 +1520,7 @@ document.getElementById('btnTransfer').addEventListener('click', ()=>{
     } else { seq.pst++; pstId = "PST-"+pad(seq.pst); }
     postings.push({id:pstId, empId:drawerEmpId, designation, zone, section, start:date, end:null});
     closeModal(); openDrawer(drawerEmpId); renderDirectory(); renderDashboard(); toast('Transfer recorded.');
+    } finally { clearBtnLoading(btn); }
   });
 });
 
@@ -1483,6 +1541,9 @@ document.getElementById('btnAddPastRecord').addEventListener('click', ()=>{
     const end = document.getElementById('pr_end').value;
     if(!start || !end){ toast('Both start and end dates are required for a past record.'); return; }
     if(end < start){ toast('End date must be on or after the start date.'); return; }
+    const btn = document.getElementById('savePastRecord');
+    setBtnLoading(btn, 'Saving…');
+    try{
     const designation = document.getElementById('pr_desig').value;
     const zone = lockZone?currentUser.zone:document.getElementById('pr_zone').value;
     const section = document.getElementById('pr_section').value;
@@ -1493,6 +1554,7 @@ document.getElementById('btnAddPastRecord').addEventListener('click', ()=>{
     } else { seq.pst++; pstId = "PST-"+pad(seq.pst); }
     postings.push({id:pstId, empId:drawerEmpId, designation, zone, section, start, end});
     closeModal(); openDrawer(drawerEmpId); renderDirectory(); renderDashboard(); toast('Past record added to posting history.');
+    } finally { clearBtnLoading(btn); }
   });
 });
 
@@ -1516,6 +1578,34 @@ document.getElementById('btnEditCurrentPosting').addEventListener('click', ()=>{
     closeModal(); openDrawer(drawerEmpId); renderDirectory(); renderDashboard(); toast('Current posting corrected.');
   });
 });
+
+// Admin-only: full edit of any posting history row — designation, zone, section, AND both dates.
+function openEditPosting(id){
+  const p = postings.find(x=>x.id===id);
+  openModal(`
+    <h3>Edit posting record</h3>
+    <div class="hint">Admin override — full control over this history entry, including its dates. Use carefully.</div>
+    <div class="field"><label>Designation</label><select id="pe_desig">${DESIGNATIONS.map(d=>`<option ${p.designation===d?'selected':''}>${d}</option>`).join('')}</select></div>
+    <div class="field"><label>Zone</label><select id="pe_zone">${ZONES.map(z=>`<option ${p.zone===z?'selected':''}>${z}</option>`).join('')}</select></div>
+    <div class="field"><label>Section</label><select id="pe_section">${SECTIONS.map(s=>`<option ${p.section===s?'selected':''}>${s}</option>`).join('')}</select></div>
+    <div class="field"><label>Start date</label><input type="date" id="pe_start" value="${p.start||''}"></div>
+    <div class="field"><label>End date (blank = current)</label><input type="date" id="pe_end" value="${p.end||''}"></div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="savePostingEdit">Save</button></div>
+  `);
+  document.getElementById('savePostingEdit').addEventListener('click', ()=>{
+    const start = document.getElementById('pe_start').value;
+    const end = document.getElementById('pe_end').value;
+    if(!start){ toast('Start date is required.'); return; }
+    if(end && end < start){ toast('End date must be on or after the start date.'); return; }
+    p.designation = document.getElementById('pe_desig').value;
+    p.zone = document.getElementById('pe_zone').value;
+    p.section = document.getElementById('pe_section').value;
+    p.start = start;
+    p.end = end || null;
+    if(backendConfigured()) persist('updatePosting', {id:p.id, fields:{designation:p.designation, zone:p.zone, section:p.section, start:p.start, end:p.end||''}});
+    closeModal(); openDrawer(drawerEmpId); renderDirectory(); renderDashboard(); toast('Posting record updated.');
+  });
+}
 
 /* ---------------- Charges (edit/delete) ---------------- */
 function renderCharges(){
@@ -1560,6 +1650,9 @@ document.getElementById('btnAddCharge').addEventListener('click', ()=>{
   document.getElementById('saveCharge').addEventListener('click', async ()=>{
     const role=document.getElementById('c_role').value.trim(); const start=document.getElementById('c_start').value;
     if(!role||!start){ toast('Role and start date are required.'); return; }
+    const btn = document.getElementById('saveCharge');
+    setBtnLoading(btn, 'Saving…');
+    try{
     const empId=document.getElementById('c_emp').value, zone=document.getElementById('c_zone').value, section=document.getElementById('c_section').value;
     let id;
     if(backendConfigured()){
@@ -1568,6 +1661,7 @@ document.getElementById('btnAddCharge').addEventListener('click', ()=>{
     } else { seq.chg++; id = "CHG-"+pad(seq.chg); }
     charges.push({id, empId, role, zone, section, start, end:null});
     closeModal(); renderCharges(); renderDashboard(); toast('Charge / work allocation assigned.');
+    } finally { clearBtnLoading(btn); }
   });
 });
 function openEditCharge(id){
@@ -1621,6 +1715,9 @@ document.getElementById('btnAddScheme').addEventListener('click', ()=>{
   document.getElementById('saveScheme').addEventListener('click', async ()=>{
     const name=document.getElementById('s_name').value.trim(); const start=document.getElementById('s_start').value;
     if(!name||!start){ toast('Name and start date are required.'); return; }
+    const btn = document.getElementById('saveScheme');
+    setBtnLoading(btn, 'Saving…');
+    try{
     const empId=document.getElementById('s_emp').value;
     let id;
     if(backendConfigured()){
@@ -1629,6 +1726,7 @@ document.getElementById('btnAddScheme').addEventListener('click', ()=>{
     } else { seq.sch++; id = "SCH-"+pad(seq.sch); }
     schemes.push({id, scheme:name, empId, start, end:null});
     closeModal(); renderSchemes(); renderDashboard(); toast('Work/scheme assignment recorded.');
+    } finally { clearBtnLoading(btn); }
   });
 });
 function openEditScheme(id){
@@ -1852,6 +1950,9 @@ document.getElementById('btnPreviewImport').addEventListener('click', ()=>{
   goToImportStep(3);
 });
 document.getElementById('btnConfirmImport').addEventListener('click', async ()=>{
+  const btn = document.getElementById('btnConfirmImport');
+  setBtnLoading(btn, 'Importing…');
+  try{
   const today = new Date().toISOString().slice(0,10);
   const rowsToImport = mappedRows.filter(r=>r._status!=='error');
 
@@ -1890,6 +1991,7 @@ document.getElementById('btnConfirmImport').addEventListener('click', async ()=>
   renderDirectory(); renderDashboard();
   toast(`Import complete — ${added} added, ${updated} updated.`);
   document.getElementById('csvText').value=''; goToImportStep(1);
+  } finally { clearBtnLoading(btn); }
 });
 
 /* =================================================================
