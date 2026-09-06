@@ -473,7 +473,6 @@
           </div>
 
           <div class="dashboard-main">
-            <div id="zoneOfficerCard" style="display:none; margin-bottom:18px;"></div>
 
             <div class="scope-chips" id="dashTabs">
               <button class="scope-chip active" data-tab="designation">Designation</button>
@@ -675,6 +674,7 @@
     <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
       <button class="btn ghost small" id="btnTransfer">Record transfer</button>
       <button class="btn ghost small" id="btnAddPastRecord">+ Add past record</button>
+      <button class="btn ghost small" id="btnEditCurrentPosting">Edit current posting</button>
     </div>
     <div class="section-title">Additional charges / work allocations held</div>
     <div id="drawerCharges"></div>
@@ -1036,34 +1036,8 @@ function renderDashboard(){
     });
   });
 
-  const officerCard = document.getElementById('zoneOfficerCard');
-  if(drillZone){
-    const rows = activePostingsInScope.map(p=>{ const e = employees.find(x=>x.id===p.empId); return {e,p}; }).filter(r=>r.e);
-    officerCard.style.display = 'block';
-    officerCard.innerHTML = `
-      <div class="dash-card" style="margin-bottom:0;">
-        <div class="row-between" style="margin-bottom:6px;">
-          <h3 style="font-size:14.5px; font-weight:700;">Officers in ${drillZone}</h3>
-          <button class="btn ghost small" id="btnClearZonePanel">← All zones (overall)</button>
-        </div>
-        <div class="card" style="margin-top:8px; box-shadow:none;">
-        <table>
-          <thead><tr><th></th><th>Emp ID</th><th>Name</th><th>Designation</th><th>Section</th></tr></thead>
-          <tbody>
-            ${rows.map(({e,p})=>`
-              <tr class="rowclick" data-emp="${e.id}">
-                <td>${avatarHtml(e)}</td><td class="mono">${e.id}</td><td>${e.name}</td><td>${p.designation}</td><td>${p.section}</td>
-              </tr>`).join('') || `<tr><td colspan="5" class="empty">No officers currently posted here.</td></tr>`}
-          </tbody>
-        </table>
-        </div>
-      </div>`;
-    officerCard.querySelectorAll('tr[data-emp]').forEach(tr=> tr.addEventListener('click', ()=>openDrawer(tr.dataset.emp)));
-    document.getElementById('btnClearZonePanel').addEventListener('click', ()=>{ drillZone=null; renderDashboard(); });
-  } else {
-    officerCard.style.display = 'none';
-    officerCard.innerHTML = '';
-  }
+  // Officer name list intentionally removed from the Dashboard — this stays a high-level
+  // analytics view (Designation/Section/Category only). Individual names live in Directory.
 
   // Designation breakdown, scoped to drill if active — grouped and ordered per G.O. 152's own hierarchy
   const desigMap = {};
@@ -1160,6 +1134,18 @@ function getDirectoryRows(){
       const mc = !cf || e.category===cf;
       const ms = !sf || (p && p.section===sf);
       return mq && mz && md && mc && ms;
+    })
+    .sort((a,b)=>{
+      // G.O. 152 hierarchy first (Commissioner, Deputy Commissioner, ...), unranked
+      // designations after that (alphabetical), no-active-posting rows last of all.
+      if(!a.p && !b.p) return a.e.name.localeCompare(b.e.name);
+      if(!a.p) return 1;
+      if(!b.p) return -1;
+      const rankA = GO152_ORDER[a.p.designation] || 9999;
+      const rankB = GO152_ORDER[b.p.designation] || 9999;
+      if(rankA !== rankB) return rankA - rankB;
+      if(rankA===9999 && a.p.designation !== b.p.designation) return a.p.designation.localeCompare(b.p.designation);
+      return a.e.name.localeCompare(b.e.name);
     });
 }
 function deputationPill(e){
@@ -1507,6 +1493,27 @@ document.getElementById('btnAddPastRecord').addEventListener('click', ()=>{
     } else { seq.pst++; pstId = "PST-"+pad(seq.pst); }
     postings.push({id:pstId, empId:drawerEmpId, designation, zone, section, start, end});
     closeModal(); openDrawer(drawerEmpId); renderDirectory(); renderDashboard(); toast('Past record added to posting history.');
+  });
+});
+
+document.getElementById('btnEditCurrentPosting').addEventListener('click', ()=>{
+  const cur = currentPosting(drawerEmpId);
+  if(!cur){ toast('No active posting to edit.'); return; }
+  const vz = visibleZones(); const lockZone = currentUser.role==='zonehr';
+  openModal(`
+    <h3>Edit current posting</h3>
+    <div class="hint">Corrects the existing posting in place — no new history row, no old row closed. Use this for fixing data-entry mistakes only; use "Record transfer" for a real move.</div>
+    <div class="field"><label>Designation</label><select id="ep_desig">${DESIGNATIONS.map(d=>`<option ${cur.designation===d?'selected':''}>${d}</option>`).join('')}</select></div>
+    <div class="field"><label>Zone</label><select id="ep_zone" ${lockZone?'disabled':''}>${(lockZone?[currentUser.zone]:vz).map(z=>`<option ${cur.zone===z?'selected':''}>${z}</option>`).join('')}</select></div>
+    <div class="field"><label>Section</label><select id="ep_section">${SECTIONS.map(s=>`<option ${cur.section===s?'selected':''}>${s}</option>`).join('')}</select></div>
+    <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="saveEditCurrentPosting">Save correction</button></div>
+  `);
+  document.getElementById('saveEditCurrentPosting').addEventListener('click', ()=>{
+    cur.designation = document.getElementById('ep_desig').value;
+    cur.zone = lockZone?currentUser.zone:document.getElementById('ep_zone').value;
+    cur.section = document.getElementById('ep_section').value;
+    if(backendConfigured()) persist('updatePosting', {id:cur.id, fields:{designation:cur.designation, zone:cur.zone, section:cur.section}});
+    closeModal(); openDrawer(drawerEmpId); renderDirectory(); renderDashboard(); toast('Current posting corrected.');
   });
 });
 
