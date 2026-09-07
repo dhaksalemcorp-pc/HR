@@ -21,7 +21,7 @@
   }
   *{box-sizing:border-box;}
   html,body{height:100%;}
-  body{margin:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased; overflow-x:hidden;}
   h1,h2,h3{margin:0; color:var(--ink); font-family:'Inter',sans-serif;}
   .mono{font-family:'Inter',monospace; font-variant-numeric:tabular-nums;}
   button{font-family:'Inter',sans-serif;}
@@ -333,6 +333,13 @@
   .modal-overlay.open{display:flex;}
   .modal{ width:min(460px,92vw); max-height:88vh; overflow-y:auto; background:var(--surface); border-radius:14px; padding:24px; box-shadow:0 20px 50px rgba(0,0,0,0.25); }
   .modal.wide{width:min(760px,94vw);}
+  .export-col-list{max-height:280px; overflow-y:auto; border:1px solid var(--line); border-radius:8px;}
+  .export-col-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 12px; border-bottom:1px solid var(--line);}
+  .export-col-row:last-child{border-bottom:none;}
+  .export-col-check{display:flex; align-items:center; gap:9px; font-size:13px; cursor:pointer; flex:1;}
+  .export-col-check input{width:15px; height:15px; accent-color:var(--blue); cursor:pointer; flex-shrink:0;}
+  .export-col-move{display:flex; gap:4px; flex-shrink:0;}
+  .export-col-move .btn{padding:3px 9px; font-size:11px;}
   .modal h3{font-size:16.5px; font-weight:700; margin-bottom:4px;}
   .modal .hint{font-size:12.5px; color:var(--ink-faint); margin-bottom:16px;}
   .field{margin-bottom:12px;}
@@ -361,6 +368,62 @@
   @media (max-width:900px){
     .col-charge{display:none;}
   }
+
+  /* ---- Responsive tables: real cards on a narrow screen instead of forced horizontal
+     scroll. Applied via class="responsive-mobile" + data-label on each <td>. ---- */
+  @media (max-width:680px){
+    table.responsive-mobile thead{display:none;}
+    table.responsive-mobile, table.responsive-mobile tbody, table.responsive-mobile tr, table.responsive-mobile td{display:block; width:100%;}
+    table.responsive-mobile tr{margin-bottom:12px; border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:var(--surface);}
+    table.responsive-mobile tr:last-child{margin-bottom:0;}
+    table.responsive-mobile td{border:none; padding:6px 2px; display:flex; justify-content:space-between; align-items:center; gap:12px; text-align:right;}
+    table.responsive-mobile td::before{content:attr(data-label); font-size:10.5px; font-weight:700; color:var(--ink-faint); text-transform:uppercase; text-align:left; flex-shrink:0;}
+    table.responsive-mobile td:empty{display:none;}
+    table.responsive-mobile td[data-label=""]{justify-content:flex-end;}
+    table.responsive-mobile td[data-label=""]::before{content:none;}
+    table.responsive-mobile .row-actions{justify-content:flex-end;}
+    table.responsive-mobile tr.section-divider{ border:none; border-radius:0; padding:0; background:none; margin-bottom:6px; }
+    table.responsive-mobile tr.section-divider td{ display:block; text-align:left; padding:8px 10px; }
+    table.responsive-mobile tr.section-divider td::before{ content:none; }
+    .card:has(table.responsive-mobile){box-shadow:none; border:none; background:none;}
+  }
+
+  /* ---- Bottom tab bar (tablet + mobile) — replaces the sidebar entirely below 900px,
+     so content gets the full screen width instead of squeezing next to a narrow rail. ---- */
+  .bottom-nav{ display:none; }
+  .more-sheet-overlay{ display:none; position:fixed; inset:0; background:rgba(11,28,51,0.35); z-index:70; align-items:flex-end; justify-content:center; }
+  .more-sheet-overlay.open{ display:flex; }
+  @media (max-width:900px){
+    .sidebar{ display:none; }
+    .bottom-nav{
+      display:flex; position:fixed; left:0; right:0; bottom:0; z-index:60;
+      background:var(--surface); border-top:1px solid var(--line);
+      box-shadow:0 -2px 12px rgba(0,0,0,0.06); padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+    }
+    .bottom-nav-btn{
+      flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+      background:none; border:none; color:var(--ink-faint); font-size:10.5px; font-weight:600;
+      padding:6px 2px; border-radius:8px; cursor:pointer;
+    }
+    .bottom-nav-btn svg{width:21px; height:21px;}
+    .bottom-nav-btn.active{color:var(--blue);}
+    .content{padding-bottom:78px;}
+  }
+  .more-sheet{
+    width:100%; max-width:520px; background:var(--surface); border-radius:16px 16px 0 0;
+    padding:10px 8px calc(14px + env(safe-area-inset-bottom)); box-shadow:0 -8px 30px rgba(0,0,0,0.2);
+  }
+  .more-sheet-handle{ width:36px; height:4px; background:var(--line); border-radius:2px; margin:4px auto 12px; }
+  .more-sheet-item{
+    width:100%; display:flex; align-items:center; gap:14px; text-align:left;
+    background:none; border:none; padding:13px 14px; font-size:14px; font-weight:600; color:var(--ink);
+    border-radius:10px; cursor:pointer;
+  }
+  .more-sheet-item:hover{background:var(--bg);}
+  .more-sheet-item svg{width:19px; height:19px; color:var(--ink-soft); flex-shrink:0;}
+  #moreLogoutBtn{color:var(--red); border-top:1px solid var(--line); margin-top:6px; padding-top:15px;}
+  #moreLogoutBtn svg{color:var(--red);}
+
   @media (max-width:760px){
     .sidebar{width:64px;}
     .sidebar .org-name, .sidebar .org-sub, .sidebar .profile-card .who,
@@ -368,7 +431,26 @@
     .sidebar .side-btn{justify-content:center; width:40px; margin:1px auto;}
     .sidebar .profile-card{justify-content:center; padding:11px 0;}
     .field-grid{grid-template-columns:1fr;}
-    .content{padding:16px;}
+    .content{padding:14px;}
+    .topbar{padding:12px 14px;}
+    .topbar h2{font-size:16px;}
+    .row-between{gap:10px;}
+    .search-bar{width:100%;}
+    .search-bar input[type=text]{width:100%;}
+    .search-bar select{flex:1; min-width:120px;}
+    .btn, .btn.small{min-height:38px;}
+    .modal{width:94vw; padding:18px; max-height:90vh;}
+    .drawer{width:100%;}
+    .stat-grid{grid-template-columns:repeat(2,1fr);}
+    .chart-grid, .bento-grid{grid-template-columns:1fr !important;}
+    .zone-grid2{grid-template-columns:1fr 1fr;}
+    .hero-number{font-size:38px;}
+    .col-map{grid-template-columns:1fr;}
+    table:not(.responsive-mobile){font-size:12px;}
+  }
+  @media (max-width:420px){
+    .zone-grid2{grid-template-columns:1fr;}
+    .stat-grid{grid-template-columns:1fr;}
   }
 </style>
 </head>
@@ -525,8 +607,7 @@
             <select id="sectionFilter"><option value="">All sections</option></select>
           </div>
           <div style="display:flex; gap:8px;">
-            <button class="btn ghost" id="btnExportExcel">⬇ Export Excel</button>
-            <button class="btn ghost" id="btnExportPDF">⬇ Export PDF</button>
+            <button class="btn ghost" id="btnOpenExport">⬇ Export…</button>
             <button class="btn" id="btnAddEmployee">+ Add employee</button>
           </div>
         </div>
@@ -534,7 +615,7 @@
           <div class="hint" style="font-size:11.5px; color:var(--ink-faint);" id="filterCount"></div>
         </div>
         <div class="card" style="overflow-x:auto;">
-        <table>
+        <table class="responsive-mobile">
           <thead><tr><th></th><th>Emp ID</th><th>Name</th><th>Current designation</th><th>Zone / Section</th><th class="col-charge">Charge / Work Alloc.</th></tr></thead>
           <tbody id="directoryBody"></tbody>
         </table>
@@ -553,7 +634,7 @@
         <div class="dash-card" style="margin-bottom:18px;">
           <h3>Sanctioned Cadre</h3>
           <div class="hint">Officer/staff cadre defined in G.O. (Ms) No. 152, SCMC.</div>
-          <div class="card" style="box-shadow:none;"><table>
+          <div class="card" style="box-shadow:none;"><table class="responsive-mobile">
             <thead><tr><th>Designation</th><th>Sanctioned</th><th>Filled</th><th>Status</th><th></th></tr></thead>
             <tbody id="vacancyCadreBody"></tbody>
           </table></div>
@@ -561,7 +642,7 @@
         <div class="dash-card">
           <h3>Field / Support Staff</h3>
           <div class="hint">Not covered by G.O. 152 — sanitary, DBC and similar rolls tracked separately.</div>
-          <div class="card" style="box-shadow:none;"><table>
+          <div class="card" style="box-shadow:none;"><table class="responsive-mobile">
             <thead><tr><th>Designation</th><th>Sanctioned</th><th>Filled</th><th>Status</th><th></th></tr></thead>
             <tbody id="vacancyFieldBody"></tbody>
           </table></div>
@@ -571,7 +652,7 @@
       <!-- CHARGES -->
       <section class="panel" id="panel-charges">
         <div class="row-between"><div></div><button class="btn" id="btnAddCharge">+ Assign charge / work allocation</button></div>
-        <div class="card"><table>
+        <div class="card"><table class="responsive-mobile">
           <thead><tr><th>Employee</th><th>Role</th><th>Zone / Section</th><th>Start date</th><th>Status</th><th></th></tr></thead>
           <tbody id="chargesBody"></tbody>
         </table></div>
@@ -580,7 +661,7 @@
       <!-- WORK/SCHEME ASSIGNED -->
       <section class="panel" id="panel-schemes">
         <div class="row-between"><div></div><button class="btn" id="btnAddScheme">+ Assign work/scheme</button></div>
-        <div class="card"><table>
+        <div class="card"><table class="responsive-mobile">
           <thead><tr><th>Work / Scheme</th><th>Assigned officer</th><th>Start date</th><th>Status</th><th></th></tr></thead>
           <tbody id="schemesBody"></tbody>
         </table></div>
@@ -622,7 +703,7 @@
           <div class="hint" style="font-size:12.5px; color:var(--ink-faint);">Assign each HR account either full (all-zone) access or one specific zone.</div>
           <button class="btn" id="btnAddUser">+ Add HR account</button>
         </div>
-        <div class="card"><table>
+        <div class="card"><table class="responsive-mobile">
           <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Assigned zone</th><th></th></tr></thead>
           <tbody id="usersBody"></tbody>
         </table></div>
@@ -662,6 +743,55 @@
         </div>
       </section>
 
+    </div>
+  </div>
+
+  <nav class="bottom-nav" id="bottomNav">
+    <button class="bottom-nav-btn active" data-panel="dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+      <span>Dashboard</span>
+    </button>
+    <button class="bottom-nav-btn" data-panel="directory">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.4"/><path d="M4.5 20c1.4-4 4-6 7.5-6s6.1 2 7.5 6"/></svg>
+      <span>Directory</span>
+    </button>
+    <button class="bottom-nav-btn" data-panel="vacancy">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 4v16"/></svg>
+      <span>Vacancy</span>
+    </button>
+    <button class="bottom-nav-btn" id="btnMoreNav">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+      <span>More</span>
+    </button>
+  </nav>
+
+  <div class="more-sheet-overlay" id="moreSheetOverlay">
+    <div class="more-sheet">
+      <div class="more-sheet-handle"></div>
+      <button class="more-sheet-item" data-panel="charges">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 14.4 7.2 16.9l.9-5.4L4.2 7.7l5.4-.8z"/></svg>
+        Additional Charge / Work Allocation
+      </button>
+      <button class="more-sheet-item" data-panel="schemes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 3v18M5 4h11l-2.2 3.5L16 11H5"/></svg>
+        Work/Scheme Assigned
+      </button>
+      <button class="more-sheet-item" data-panel="import">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
+        Bulk Import
+      </button>
+      <button class="more-sheet-item" id="moreNavAccess" data-panel="access" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><circle cx="12" cy="10.5" r="2.2"/></svg>
+        User Access
+      </button>
+      <button class="more-sheet-item" id="moreNavSettings" data-panel="settings" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        Settings
+      </button>
+      <button class="more-sheet-item" id="moreLogoutBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        Sign Out
+      </button>
     </div>
   </div>
 </div>
@@ -994,6 +1124,8 @@ async function doLogin(){
   document.getElementById('scopePill').textContent = match.role==='zonehr' ? match.zone : 'All zones';
   document.getElementById('navAccess').style.display = isAdmin() ? 'flex' : 'none';
   document.getElementById('navSettings').style.display = isAdmin() ? 'flex' : 'none';
+  document.getElementById('moreNavAccess').style.display = isAdmin() ? 'flex' : 'none';
+  document.getElementById('moreNavSettings').style.display = isAdmin() ? 'flex' : 'none';
   document.getElementById('btnAddSanctioned').style.display = (currentUser.role!=='zonehr') ? 'inline-flex' : 'none';
   rebuildZoneOptions();
   rebuildOtherFilterOptions();
@@ -1009,21 +1141,43 @@ document.getElementById('logoutBtn').addEventListener('click', ()=>{
 });
 document.getElementById('refreshBtn').addEventListener('click', ()=>{ renderAll(); toast('Refreshed.'); });
 
-/* ---------------- Sidebar nav ---------------- */
+/* ---------------- Navigation (shared by sidebar, on desktop, and bottom tab bar, on mobile/tablet) ---------------- */
 const titles = {dashboard:["Dashboard","Overview & Analytics"], directory:["Directory","Employee records"], vacancy:["Vacancy","Sanctioned vs filled posts"], charges:["Additional Charge / Work Allocation","In-charge appointments and day-to-day seat allocations"], schemes:["Work/Scheme Assigned","Who owns what"], import:["Bulk Import","Add many employees at once"], access:["User Access","Manage HR accounts"], settings:["Settings","Manage dropdown lists"]};
+function activatePanel(panelName){
+  document.querySelectorAll('.side-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.bottom-nav-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll(`[data-panel="${panelName}"]`).forEach(b=>b.classList.add('active'));
+  if(!['dashboard','directory','vacancy'].includes(panelName)){
+    document.getElementById('btnMoreNav').classList.add('active');
+  }
+  document.getElementById('panel-'+panelName).classList.add('active');
+  document.getElementById('pageTitle').textContent = titles[panelName][0];
+  document.getElementById('pageSubtitle').textContent = titles[panelName][1];
+  if(panelName==='dashboard') renderDashboard();
+  if(panelName==='access') renderUsers();
+  if(panelName==='settings') renderSettingsLists();
+  if(panelName==='vacancy') renderVacancy();
+  closeMoreSheet();
+}
 document.querySelectorAll('.side-btn').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    document.querySelectorAll('.side-btn').forEach(b=>b.classList.remove('active'));
-    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('panel-'+btn.dataset.panel).classList.add('active');
-    document.getElementById('pageTitle').textContent = titles[btn.dataset.panel][0];
-    document.getElementById('pageSubtitle').textContent = titles[btn.dataset.panel][1];
-    if(btn.dataset.panel==='dashboard') renderDashboard();
-    if(btn.dataset.panel==='access') renderUsers();
-    if(btn.dataset.panel==='settings') renderSettingsLists();
-    if(btn.dataset.panel==='vacancy') renderVacancy();
-  });
+  btn.addEventListener('click', ()=> activatePanel(btn.dataset.panel));
+});
+
+/* ---------------- Bottom tab bar + "More" sheet (tablet/mobile) ---------------- */
+document.querySelectorAll('.bottom-nav-btn[data-panel]').forEach(btn=>{
+  btn.addEventListener('click', ()=> activatePanel(btn.dataset.panel));
+});
+function openMoreSheet(){ document.getElementById('moreSheetOverlay').classList.add('open'); }
+function closeMoreSheet(){ document.getElementById('moreSheetOverlay').classList.remove('open'); }
+document.getElementById('btnMoreNav').addEventListener('click', openMoreSheet);
+document.getElementById('moreSheetOverlay').addEventListener('click', (e)=>{ if(e.target.id==='moreSheetOverlay') closeMoreSheet(); });
+document.querySelectorAll('.more-sheet-item[data-panel]').forEach(btn=>{
+  btn.addEventListener('click', ()=> activatePanel(btn.dataset.panel));
+});
+document.getElementById('moreLogoutBtn').addEventListener('click', ()=>{
+  closeMoreSheet();
+  document.getElementById('logoutBtn').dispatchEvent(new Event('click', {bubbles:true}));
 });
 document.getElementById('collapseBtn').addEventListener('click', ()=>{ document.getElementById('sidebar').classList.toggle('collapsed'); });
 
@@ -1209,12 +1363,12 @@ function renderDirectory(){
   document.getElementById('filterCount').textContent = `${rows.length} employee${rows.length===1?'':'s'} shown`;
   body.innerHTML = rows.map(({e,p,ac})=>`
     <tr class="rowclick" data-emp="${e.id}">
-      <td>${avatarHtml(e)}</td>
-      <td class="mono">${e.id}</td>
-      <td>${e.name}${deputationPill(e)}</td>
-      <td>${p ? p.designation : '<span class="pill gray">No active posting</span>'}</td>
-      <td>${p ? p.zone+' · '+p.section : '—'}</td>
-      <td class="col-charge">${ac.length ? ac.map(c=>`<span class="pill blue">${c.role}</span>`).join(' ') : '—'}</td>
+      <td data-label="">${avatarHtml(e)}</td>
+      <td class="mono" data-label="Emp ID">${e.id}</td>
+      <td data-label="Name">${e.name}${deputationPill(e)}</td>
+      <td data-label="Designation">${p ? p.designation : '<span class="pill gray">No active posting</span>'}</td>
+      <td data-label="Zone / Section">${p ? p.zone+' · '+p.section : '—'}</td>
+      <td class="col-charge" data-label="Additional Charge">${ac.length ? ac.map(c=>`<span class="pill blue">${c.role}</span>`).join(' ') : '—'}</td>
     </tr>`).join('');
   body.querySelectorAll('tr.rowclick').forEach(tr=> tr.addEventListener('click', ()=>openDrawer(tr.dataset.emp)));
 }
@@ -1224,47 +1378,145 @@ desigFilterEl.addEventListener('change', renderDirectory);
 categoryFilterEl.addEventListener('change', renderDirectory);
 sectionFilterEl.addEventListener('change', renderDirectory);
 
-/* ---------------- Export: Excel & PDF ---------------- */
+/* ---------------- Export configurator: columns, order, filters, then Excel or PDF ---------------- */
 function scopeLabel(){ return currentUser.role==='zonehr' ? currentUser.zone : 'All zones'; }
-function exportRowsData(){
-  return getDirectoryRows().map(({e,p,ac})=>({
-    'Emp ID': e.id, 'Name': e.name, 'Category': e.category,
-    'Designation': p ? p.designation : '', 'Zone': p ? p.zone : '', 'Section': p ? p.section : '',
-    'Additional Charge / Work Allocation': ac.map(c=>c.role).join('; '),
-    'Date of Joining': e.doj, 'Phone': e.phone || '', 'Email': e.email || '', 'Native Location': e.native || ''
-  }));
+
+const EXPORT_COLUMNS_DEF = [
+  {key:'empId', label:'Emp ID', get:(e,p,ac)=> e.id},
+  {key:'name', label:'Name', get:(e,p,ac)=> e.name},
+  {key:'category', label:'Category', get:(e,p,ac)=> e.category},
+  {key:'designation', label:'Designation', get:(e,p,ac)=> p?p.designation:''},
+  {key:'zone', label:'Zone', get:(e,p,ac)=> p?p.zone:''},
+  {key:'section', label:'Section', get:(e,p,ac)=> p?p.section:''},
+  {key:'charges', label:'Additional Charge / Work Allocation', get:(e,p,ac)=> ac.map(c=>c.role).join('; ')},
+  {key:'doj', label:'Date of Joining', get:(e,p,ac)=> e.doj||''},
+  {key:'phone', label:'Phone', get:(e,p,ac)=> e.phone||''},
+  {key:'email', label:'Email', get:(e,p,ac)=> e.email||''},
+  {key:'native', label:'Native Location', get:(e,p,ac)=> e.native||''},
+  {key:'deputation', label:'Deputation', get:(e,p,ac)=> e.deputation ? (e.deputation.type==='out'?'Deputed out to '+(e.deputation.org||''):'Deputed in from '+(e.deputation.org||'')) : ''},
+];
+let exportColumnOrder = EXPORT_COLUMNS_DEF.map(c=>c.key);
+let exportColumnEnabled = Object.fromEntries(EXPORT_COLUMNS_DEF.map(c=>[c.key, true]));
+
+function getExportRows(){
+  const zf = document.getElementById('exp_zone').value;
+  const df = document.getElementById('exp_desig').value;
+  const cf = document.getElementById('exp_cat').value;
+  const sf = document.getElementById('exp_section').value;
+  return employees.filter(e=>empInScope(e.id)).map(e=>{ const p=currentPosting(e.id); const ac=activeCharges(e.id); return {e,p,ac}; })
+    .filter(({e,p})=>{
+      const mz = !zf || (p && p.zone===zf);
+      const md = !df || (p && p.designation===df);
+      const mc = !cf || e.category===cf;
+      const ms = !sf || (p && p.section===sf);
+      return mz && md && mc && ms;
+    });
 }
-document.getElementById('btnExportExcel').addEventListener('click', ()=>{
-  if(typeof XLSX === 'undefined'){ toast('Excel library still loading — try again in a moment.'); return; }
-  const data = exportRowsData();
-  if(!data.length){ toast('No rows to export for the current filters.'); return; }
-  const ws = XLSX.utils.json_to_sheet(data);
-  ws['!cols'] = Object.keys(data[0]).map(k=>({wch: Math.max(12, k.length+2)}));
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Employees');
-  XLSX.writeFile(wb, `SCMC_Employee_Directory_${scopeLabel().replace(/[^a-z0-9]+/gi,'_')}.xlsx`);
-  toast(`Exported ${data.length} rows to Excel.`);
-});
-document.getElementById('btnExportPDF').addEventListener('click', ()=>{
-  if(typeof window.jspdf === 'undefined'){ toast('PDF library still loading — try again in a moment.'); return; }
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation:'landscape' });
-  const rows = getDirectoryRows();
-  if(!rows.length){ toast('No rows to export for the current filters.'); return; }
-  doc.setFontSize(14); doc.text('SCMC Employee Directory', 14, 15);
-  doc.setFontSize(9); doc.setTextColor(100);
-  doc.text(`Scope: ${scopeLabel()}  ·  Generated ${new Date().toLocaleDateString('en-IN')}  ·  ${rows.length} employees`, 14, 21);
-  const body = rows.map(({e,p,ac})=>[e.id, e.name, e.category, p?p.designation:'—', p?p.zone:'—', p?p.section:'—', ac.map(c=>c.role).join(', ')||'—']);
-  doc.autoTable({
-    startY:26,
-    head:[['Emp ID','Name','Category','Designation','Zone','Section','Additional Charge / Work Allocation']],
-    body,
-    styles:{fontSize:8, cellPadding:2.2},
-    headStyles:{fillColor:[47,95,224], textColor:255},
-    alternateRowStyles:{fillColor:[247,249,252]},
+function updateExportPreviewCount(){
+  const n = getExportRows().length;
+  const activeCols = exportColumnOrder.filter(k=>exportColumnEnabled[k]).length;
+  document.getElementById('exportPreviewCount').textContent = `${n} employee${n===1?'':'s'} · ${activeCols} column${activeCols===1?'':'s'} selected`;
+  document.getElementById('exportAsExcelBtn').disabled = n===0 || activeCols===0;
+  document.getElementById('exportAsPdfBtn').disabled = n===0 || activeCols===0;
+}
+function renderExportColumnList(){
+  const container = document.getElementById('exportColumnList');
+  container.innerHTML = exportColumnOrder.map((key,i)=>{
+    const col = EXPORT_COLUMNS_DEF.find(c=>c.key===key);
+    return `<div class="export-col-row">
+      <label class="export-col-check">
+        <input type="checkbox" data-colkey="${key}" ${exportColumnEnabled[key]?'checked':''}>
+        <span>${col.label}</span>
+      </label>
+      <div class="export-col-move">
+        <button class="btn ghost small" data-move-up="${key}" ${i===0?'disabled':''} title="Move up">↑</button>
+        <button class="btn ghost small" data-move-down="${key}" ${i===exportColumnOrder.length-1?'disabled':''} title="Move down">↓</button>
+      </div>
+    </div>`;
+  }).join('');
+  container.querySelectorAll('[data-colkey]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{ exportColumnEnabled[cb.dataset.colkey] = cb.checked; updateExportPreviewCount(); });
   });
-  doc.save(`SCMC_Employee_Directory_${scopeLabel().replace(/[^a-z0-9]+/gi,'_')}.pdf`);
-  toast(`Exported ${rows.length} rows to PDF.`);
+  container.querySelectorAll('[data-move-up]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const idx = exportColumnOrder.indexOf(b.dataset.moveUp);
+      if(idx>0){ [exportColumnOrder[idx-1],exportColumnOrder[idx]] = [exportColumnOrder[idx],exportColumnOrder[idx-1]]; renderExportColumnList(); }
+    });
+  });
+  container.querySelectorAll('[data-move-down]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const idx = exportColumnOrder.indexOf(b.dataset.moveDown);
+      if(idx<exportColumnOrder.length-1){ [exportColumnOrder[idx+1],exportColumnOrder[idx]] = [exportColumnOrder[idx],exportColumnOrder[idx+1]]; renderExportColumnList(); }
+    });
+  });
+}
+document.getElementById('btnOpenExport').addEventListener('click', ()=>{
+  const vz = visibleZones();
+  openModal(`
+    <h3>Export Directory</h3>
+    <div class="hint">Choose which employees and which columns to include, then export as Excel or PDF — both use the same setup below.</div>
+    <div class="section-title">Filters</div>
+    <div class="field-grid">
+      <div class="field"><label>Zone</label><select id="exp_zone"><option value="">All zones</option>${vz.map(z=>`<option ${zoneFilterEl.value===z?'selected':''}>${z}</option>`).join('')}</select></div>
+      <div class="field"><label>Designation</label><select id="exp_desig"><option value="">All designations</option>${DESIGNATIONS.map(d=>`<option ${desigFilterEl.value===d?'selected':''}>${d}</option>`).join('')}</select></div>
+      <div class="field"><label>Category</label><select id="exp_cat"><option value="">All categories</option>${CATEGORIES.map(c=>`<option ${categoryFilterEl.value===c?'selected':''}>${c}</option>`).join('')}</select></div>
+      <div class="field"><label>Section</label><select id="exp_section"><option value="">All sections</option>${SECTIONS.map(s=>`<option ${sectionFilterEl.value===s?'selected':''}>${s}</option>`).join('')}</select></div>
+    </div>
+    <div class="section-title">Columns — check to include, use arrows to reorder</div>
+    <div id="exportColumnList" class="export-col-list"></div>
+    <div class="hint" id="exportPreviewCount" style="font-weight:700; color:var(--ink); margin-top:12px;"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn ghost" id="exportAsExcelBtn">⬇ Export Excel</button>
+      <button class="btn" id="exportAsPdfBtn">⬇ Export PDF</button>
+    </div>
+  `, true);
+  renderExportColumnList();
+  updateExportPreviewCount();
+  ['exp_zone','exp_desig','exp_cat','exp_section'].forEach(id=>{
+    document.getElementById(id).addEventListener('change', updateExportPreviewCount);
+  });
+  document.getElementById('exportAsExcelBtn').addEventListener('click', ()=>{
+    if(typeof XLSX === 'undefined'){ toast('Excel library still loading — try again in a moment.'); return; }
+    const rows = getExportRows();
+    const activeCols = exportColumnOrder.filter(k=>exportColumnEnabled[k]).map(k=>EXPORT_COLUMNS_DEF.find(c=>c.key===k));
+    if(!rows.length || !activeCols.length){ toast('No rows or no columns selected.'); return; }
+    const data = rows.map(({e,p,ac})=>{
+      const obj = {};
+      activeCols.forEach(col=>{ obj[col.label] = col.get(e,p,ac); });
+      return obj;
+    });
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws['!cols'] = activeCols.map(c=>({wch: Math.max(12, c.label.length+2)}));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Employees');
+    XLSX.writeFile(wb, `SCMC_Employee_Export_${scopeLabel().replace(/[^a-z0-9]+/gi,'_')}.xlsx`);
+    toast(`Exported ${data.length} rows to Excel.`);
+    closeModal();
+  });
+  document.getElementById('exportAsPdfBtn').addEventListener('click', ()=>{
+    if(typeof window.jspdf === 'undefined'){ toast('PDF library still loading — try again in a moment.'); return; }
+    const { jsPDF } = window.jspdf;
+    const rows = getExportRows();
+    const activeCols = exportColumnOrder.filter(k=>exportColumnEnabled[k]).map(k=>EXPORT_COLUMNS_DEF.find(c=>c.key===k));
+    if(!rows.length || !activeCols.length){ toast('No rows or no columns selected.'); return; }
+    const doc = new jsPDF({ orientation: activeCols.length>5 ? 'landscape' : 'portrait' });
+    doc.setFontSize(14); doc.text('SCMC Employee Directory Export', 14, 15);
+    doc.setFontSize(9); doc.setTextColor(100);
+    doc.text(`Scope: ${scopeLabel()}  ·  Generated ${new Date().toLocaleDateString('en-IN')}  ·  ${rows.length} employees`, 14, 21);
+    const body = rows.map(({e,p,ac})=> activeCols.map(c=> c.get(e,p,ac) || '—'));
+    doc.autoTable({
+      startY:26,
+      head:[activeCols.map(c=>c.label)],
+      body,
+      styles:{fontSize:8, cellPadding:2.2},
+      headStyles:{fillColor:[47,95,224], textColor:255},
+      alternateRowStyles:{fillColor:[247,249,252]},
+    });
+    doc.save(`SCMC_Employee_Export_${scopeLabel().replace(/[^a-z0-9]+/gi,'_')}.pdf`);
+    toast(`Exported ${rows.length} rows to PDF.`);
+    closeModal();
+  });
 });
 
 /* ---------------- Photo picker helper ---------------- */
@@ -1622,10 +1874,10 @@ function renderCharges(){
   const body=document.getElementById('chargesBody');
   const rows=charges.filter(c=>vz.includes(c.zone)).sort((a,b)=>(a.end?1:0)-(b.end?1:0));
   body.innerHTML = rows.map(c=>`
-    <tr><td>${empName(c.empId)} <span class="mono" style="color:var(--ink-faint)">(${c.empId})</span></td>
-    <td>${c.role || '<span class="pill gray">Role not yet specified</span>'}</td><td>${c.zone} · ${c.section}</td><td>${fmtDate(c.start)}</td>
-    <td>${c.end?`<span class="pill red">Closed ${fmtDate(c.end)}</span>`:'<span class="pill green">Current</span>'}</td>
-    <td><div class="row-actions">
+    <tr><td data-label="Employee">${empName(c.empId)} <span class="mono" style="color:var(--ink-faint)">(${c.empId})</span></td>
+    <td data-label="Role">${c.role || '<span class="pill gray">Role not yet specified</span>'}</td><td data-label="Zone / Section">${c.zone} · ${c.section}</td><td data-label="Start date">${fmtDate(c.start)}</td>
+    <td data-label="Status">${c.end?`<span class="pill red">Closed ${fmtDate(c.end)}</span>`:'<span class="pill green">Current</span>'}</td>
+    <td data-label=""><div class="row-actions">
       ${c.end?'':`<button class="btn ghost small" data-close-charge="${c.id}">End</button>`}
       <button class="btn ghost small" data-edit-charge="${c.id}">Edit</button>
       <button class="btn danger small" data-del-charge="${c.id}">Delete</button>
@@ -1690,9 +1942,9 @@ function renderSchemes(){
   const body=document.getElementById('schemesBody');
   const rows=schemes.filter(s=>scopedEmpIds.includes(s.empId)).sort((a,b)=>(a.end?1:0)-(b.end?1:0));
   body.innerHTML = rows.map(s=>`
-    <tr><td>${s.scheme || '<span class="pill gray">Name not yet specified</span>'}</td><td>${empName(s.empId)} <span class="mono" style="color:var(--ink-faint)">(${s.empId})</span></td>
-    <td>${fmtDate(s.start)}</td><td>${s.end?`<span class="pill red">Closed ${fmtDate(s.end)}</span>`:'<span class="pill green">Current</span>'}</td>
-    <td><div class="row-actions">
+    <tr><td data-label="Work / Scheme">${s.scheme || '<span class="pill gray">Name not yet specified</span>'}</td><td data-label="Officer">${empName(s.empId)} <span class="mono" style="color:var(--ink-faint)">(${s.empId})</span></td>
+    <td data-label="Start date">${fmtDate(s.start)}</td><td data-label="Status">${s.end?`<span class="pill red">Closed ${fmtDate(s.end)}</span>`:'<span class="pill green">Current</span>'}</td>
+    <td data-label=""><div class="row-actions">
       ${s.end?'':`<button class="btn ghost small" data-close-scheme="${s.id}">End</button>`}
       <button class="btn ghost small" data-edit-scheme="${s.id}">Edit</button>
       <button class="btn danger small" data-del-scheme="${s.id}">Delete</button>
@@ -1816,7 +2068,7 @@ function renderVacancy(){
     const internalTag = INTERNAL_DESIGNATIONS.includes(r.designation) ? ' <span class="pill gray">Internal use</span>' : '';
     const editBtn = (currentUser.role!=='zonehr' && scopeZone) ? `<button class="btn ghost small" data-edit-sanctioned="${scopeZone}||${r.designation}">Edit</button>` : '';
     const serialTag = GO152_ORDER[r.designation] ? `<span class="mono" style="color:var(--ink-faint); margin-right:6px;">${GO152_ORDER[r.designation]}.</span>` : '';
-    return `<tr><td>${serialTag}${r.designation}${internalTag}</td><td>${r.sanctioned}</td><td>${r.filled}</td><td>${statusPillFor(r.designation, r.sanctioned, r.filled)}</td><td>${editBtn}</td></tr>`;
+    return `<tr><td data-label="Designation">${serialTag}${r.designation}${internalTag}</td><td data-label="Sanctioned">${r.sanctioned}</td><td data-label="Filled">${r.filled}</td><td data-label="Status">${statusPillFor(r.designation, r.sanctioned, r.filled)}</td><td data-label="">${editBtn}</td></tr>`;
   }
   function renderCadreBodyGrouped(cadreList){
     let html = '';
@@ -2007,10 +2259,10 @@ document.getElementById('btnConfirmImport').addEventListener('click', async ()=>
 function renderUsers(){
   const body = document.getElementById('usersBody');
   body.innerHTML = users.map(u=>`
-    <tr><td class="mono">${u.username}</td><td>${u.name}</td>
-    <td>${u.role==='admin'?'Administrator':u.role==='headoffice'?'Head Office HR (all zones)':'Zone HR'}</td>
-    <td>${u.role==='zonehr' ? `<select data-assign="${u.username}">${ZONES.map(z=>`<option ${u.zone===z?'selected':''}>${z}</option>`).join('')}</select>` : '<span style="color:var(--ink-faint)">All zones</span>'}</td>
-    <td>${u.username==='admin' ? '' : `<button class="btn danger small" data-del-user="${u.username}">Delete</button>`}</td></tr>`).join('');
+    <tr><td class="mono" data-label="Username">${u.username}</td><td data-label="Name">${u.name}</td>
+    <td data-label="Role">${u.role==='admin'?'Administrator':u.role==='headoffice'?'Head Office HR (all zones)':'Zone HR'}</td>
+    <td data-label="Zone">${u.role==='zonehr' ? `<select data-assign="${u.username}">${ZONES.map(z=>`<option ${u.zone===z?'selected':''}>${z}</option>`).join('')}</select>` : '<span style="color:var(--ink-faint)">All zones</span>'}</td>
+    <td data-label="">${u.username==='admin' ? '' : `<button class="btn danger small" data-del-user="${u.username}">Delete</button>`}</td></tr>`).join('');
   body.querySelectorAll('[data-assign]').forEach(sel=> sel.addEventListener('change', ()=>{
     users.find(u=>u.username===sel.dataset.assign).zone = sel.value;
     if(backendConfigured()) persist('updateUserZone', {username:sel.dataset.assign, zone:sel.value});
