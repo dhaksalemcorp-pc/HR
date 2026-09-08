@@ -2218,66 +2218,149 @@ function getLogoDataUri(){
   const img = document.querySelector('.login-seal-img');
   return img ? img.src : null;
 }
-function buildVacancyExportRows(){
+// Builds the same structure the on-screen Vacancy tab uses: cadre rows grouped by G.O. 152
+// section (in serial order), a grand total, and field/support staff kept fully separate.
+function buildVacancyExportSections(){
   const scopeZone = vacancyScope==='Overall' ? null : vacancyScope;
   const rows = getVacancyRows(scopeZone);
-  return rows.map(r=>{
+  const toStatus = (r)=>{
     const diff = r.sanctioned - r.filled;
-    let status;
-    if(r.sanctioned===0 && (FIELD_DESIGNATIONS.includes(r.designation) || INTERNAL_DESIGNATIONS.includes(r.designation))) status = 'Not covered by G.O. 152';
-    else if(diff>0) status = `${diff} vacant`;
-    else if(diff<0) status = `${-diff} excess`;
-    else status = 'Fully staffed';
-    return {
-      'Designation': r.designation,
-      'Cadre (per G.O. 152)': GO152_CADRE[r.designation] || '—',
-      'Sanctioned': r.sanctioned,
-      'Filled': r.filled,
-      'Status': status,
-    };
-  });
+    if(r.sanctioned===0 && (FIELD_DESIGNATIONS.includes(r.designation) || INTERNAL_DESIGNATIONS.includes(r.designation))) return 'Not covered by G.O. 152';
+    if(diff>0) return `${diff} vacant`;
+    if(diff<0) return `${-diff} excess`;
+    return 'Fully staffed';
+  };
+  const cadreRows = rows.filter(r=> !FIELD_DESIGNATIONS.includes(r.designation) && !INTERNAL_DESIGNATIONS.includes(r.designation));
+  const fieldRows = rows.filter(r=> FIELD_DESIGNATIONS.includes(r.designation) || INTERNAL_DESIGNATIONS.includes(r.designation));
+
+  const sections = GO152_SECTIONS_IN_ORDER.map(sec=>({
+    section: sec,
+    rows: cadreRows.filter(r=>GO152_SECTION[r.designation]===sec)
+      .sort((a,b)=>(GO152_ORDER[a.designation]||999)-(GO152_ORDER[b.designation]||999))
+      .map(r=>({ serial:GO152_ORDER[r.designation]||'', designation:r.designation, cadre:GO152_CADRE[r.designation]||'—', sanctioned:r.sanctioned, filled:r.filled, status:toStatus(r) }))
+  })).filter(g=>g.rows.length);
+  const unmapped = cadreRows.filter(r=>!GO152_SECTION[r.designation]);
+  if(unmapped.length){
+    sections.push({ section:'Other', rows: unmapped.sort((a,b)=>a.designation.localeCompare(b.designation))
+      .map(r=>({ serial:'', designation:r.designation, cadre:GO152_CADRE[r.designation]||'—', sanctioned:r.sanctioned, filled:r.filled, status:toStatus(r) })) });
+  }
+
+  const totalSanctioned = cadreRows.reduce((s,r)=>s+r.sanctioned,0);
+  const totalFilled = cadreRows.reduce((s,r)=>s+r.filled,0);
+  const fieldRowsOut = fieldRows.sort((a,b)=>a.designation.localeCompare(b.designation))
+    .map(r=>({ designation:r.designation, sanctioned:r.sanctioned, filled:r.filled, status:toStatus(r) }));
+
+  return { sections, totalSanctioned, totalFilled, fieldRowsOut };
 }
+function vacancyExportRowCount(d){ return d.sections.reduce((s,g)=>s+g.rows.length,0) + d.fieldRowsOut.length; }
+
 document.getElementById('btnVacancyExportExcel').addEventListener('click', ()=>{
   if(typeof XLSX === 'undefined'){ toast('Excel library still loading — try again in a moment.'); return; }
-  const data = buildVacancyExportRows();
-  if(!data.length){ toast('No rows to export for the current scope.'); return; }
+  const d = buildVacancyExportSections();
+  if(!vacancyExportRowCount(d)){ toast('No rows to export for the current scope.'); return; }
   const wb = XLSX.utils.book_new();
-  const title = [
+
+  // Sheet 1: Sanctioned Cadre — grouped by G.O. 152 section, with a grand total row at the end
+  const aoa = [
     ['Salem City Municipal Corporation'],
-    ['Vacancy Report'],
+    ['Vacancy Report — Sanctioned Cadre (per G.O. 152)'],
     [`Scope: ${vacancyScope}`],
     [`Generated: ${new Date().toLocaleString('en-IN')}`],
     [],
   ];
-  const ws = XLSX.utils.aoa_to_sheet(title);
-  XLSX.utils.sheet_add_json(ws, data, {origin: 'A6', skipHeader:false});
-  ws['!cols'] = [{wch:34},{wch:32},{wch:12},{wch:10},{wch:20}];
-  XLSX.utils.book_append_sheet(wb, ws, 'Vacancy');
+  d.sections.forEach(group=>{
+    aoa.push([group.section.toUpperCase()]);
+    aoa.push(['Sl.No','Designation','Cadre (per G.O. 152)','Sanctioned','Filled','Status']);
+    group.rows.forEach(r=> aoa.push([r.serial, r.designation, r.cadre, r.sanctioned, r.filled, r.status]));
+    aoa.push([]);
+  });
+  aoa.push(['TOTAL (Sanctioned Cadre)','','', d.totalSanctioned, d.totalFilled, '']);
+  const ws1 = XLSX.utils.aoa_to_sheet(aoa);
+  ws1['!cols'] = [{wch:8},{wch:34},{wch:32},{wch:12},{wch:10},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Sanctioned Cadre');
+
+  // Sheet 2: Field / Support Staff — kept on its own sheet, Excel's equivalent of a separate page
+  if(d.fieldRowsOut.length){
+    const aoa2 = [
+      ['Salem City Municipal Corporation'],
+      ['Field / Support Staff (not covered by G.O. 152)'],
+      [`Scope: ${vacancyScope}`],
+      [`Generated: ${new Date().toLocaleString('en-IN')}`],
+      [],
+      ['Designation','Sanctioned','Filled','Status'],
+    ];
+    d.fieldRowsOut.forEach(r=> aoa2.push([r.designation, r.sanctioned, r.filled, r.status]));
+    const ws2 = XLSX.utils.aoa_to_sheet(aoa2);
+    ws2['!cols'] = [{wch:34},{wch:12},{wch:10},{wch:24}];
+    XLSX.utils.book_append_sheet(wb, ws2, 'Field-Support Staff');
+  }
+
   XLSX.writeFile(wb, `SCMC_Vacancy_${vacancyScope.replace(/[^a-z0-9]+/gi,'_')}.xlsx`);
-  toast(`Exported ${data.length} rows to Excel.`);
+  toast(`Exported ${vacancyExportRowCount(d)} rows to Excel.`);
 });
+
 document.getElementById('btnVacancyExportPDF').addEventListener('click', ()=>{
   if(typeof window.jspdf === 'undefined'){ toast('PDF library still loading — try again in a moment.'); return; }
   const { jsPDF } = window.jspdf;
-  const data = buildVacancyExportRows();
-  if(!data.length){ toast('No rows to export for the current scope.'); return; }
+  const d = buildVacancyExportSections();
+  if(!vacancyExportRowCount(d)){ toast('No rows to export for the current scope.'); return; }
   const doc = new jsPDF({ orientation:'landscape' });
   const logo = getLogoDataUri();
-  if(logo){ try{ doc.addImage(logo, 'PNG', 14, 10, 16, 16); }catch(e){ /* logo optional, skip silently if it fails to embed */ } }
-  doc.setFontSize(14); doc.text('Salem City Municipal Corporation', logo?36:14, 16);
-  doc.setFontSize(11); doc.text('Vacancy Report', logo?36:14, 22);
-  doc.setFontSize(9); doc.setTextColor(100);
-  doc.text(`Scope: ${vacancyScope}  ·  Generated: ${new Date().toLocaleString('en-IN')}`, 14, 32);
-  doc.autoTable({
-    startY:38,
-    head:[['Designation','Cadre (per G.O. 152)','Sanctioned','Filled','Status']],
-    body: data.map(r=>[r['Designation'], r['Cadre (per G.O. 152)'], r['Sanctioned'], r['Filled'], r['Status']]),
-    styles:{fontSize:8, cellPadding:2.2},
-    headStyles:{fillColor:[47,95,224], textColor:255},
-    alternateRowStyles:{fillColor:[247,249,252]},
+  const pageH = doc.internal.pageSize.getHeight();
+
+  function drawHeader(subtitle){
+    if(logo){ try{ doc.addImage(logo, 'PNG', 14, 10, 16, 16); }catch(e){} }
+    doc.setFont('helvetica','normal'); doc.setTextColor(20);
+    doc.setFontSize(14); doc.text('Salem City Municipal Corporation', logo?36:14, 16);
+    doc.setFontSize(11); doc.text(subtitle, logo?36:14, 22);
+    doc.setFontSize(9); doc.setTextColor(100);
+    doc.text(`Scope: ${vacancyScope}  ·  Generated: ${new Date().toLocaleString('en-IN')}`, 14, 32);
+    return 38;
+  }
+
+  // Page(s) 1..N: Sanctioned Cadre, one block per G.O. 152 section, in serial order
+  let y = drawHeader('Vacancy Report — Sanctioned Cadre (per G.O. 152)');
+  d.sections.forEach(group=>{
+    if(y > pageH - 40){ doc.addPage(); y = drawHeader('Vacancy Report — Sanctioned Cadre (per G.O. 152) (contd.)'); }
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(47,95,224);
+    doc.text(group.section, 14, y);
+    doc.setFont('helvetica','normal'); doc.setTextColor(20);
+    doc.autoTable({
+      startY: y+3,
+      head:[['Sl.No','Designation','Cadre (per G.O. 152)','Sanctioned','Filled','Status']],
+      body: group.rows.map(r=>[r.serial, r.designation, r.cadre, r.sanctioned, r.filled, r.status]),
+      styles:{fontSize:8, cellPadding:2},
+      headStyles:{fillColor:[47,95,224], textColor:255},
+      alternateRowStyles:{fillColor:[247,249,252]},
+      margin:{left:14, right:14},
+    });
+    y = doc.lastAutoTable.finalY + 10;
   });
+  if(y > pageH - 30){ doc.addPage(); y = drawHeader('Vacancy Report — Sanctioned Cadre (per G.O. 152) (contd.)'); }
+  doc.autoTable({
+    startY: y,
+    body:[['TOTAL (Sanctioned Cadre)', '', '', String(d.totalSanctioned), String(d.totalFilled), '']],
+    styles:{fontSize:9, fontStyle:'bold', cellPadding:3, fillColor:[231,238,254], textColor:20},
+    margin:{left:14, right:14},
+  });
+
+  // Separate page: Field / Support Staff (not covered by G.O. 152), never mixed with the cadre table
+  if(d.fieldRowsOut.length){
+    doc.addPage();
+    drawHeader('Field / Support Staff (not covered by G.O. 152)');
+    doc.autoTable({
+      startY:38,
+      head:[['Designation','Sanctioned','Filled','Status']],
+      body: d.fieldRowsOut.map(r=>[r.designation, r.sanctioned, r.filled, r.status]),
+      styles:{fontSize:8, cellPadding:2.2},
+      headStyles:{fillColor:[124,92,252], textColor:255},
+      alternateRowStyles:{fillColor:[247,249,252]},
+      margin:{left:14, right:14},
+    });
+  }
+
   doc.save(`SCMC_Vacancy_${vacancyScope.replace(/[^a-z0-9]+/gi,'_')}.pdf`);
-  toast(`Exported ${data.length} rows to PDF.`);
+  toast(`Exported ${vacancyExportRowCount(d)} rows to PDF.`);
 });
 
 /* =================================================================
