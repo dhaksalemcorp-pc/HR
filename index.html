@@ -859,9 +859,15 @@
       <button class="btn ghost small" id="btnAddPastRecord">+ Add past record</button>
       <button class="btn ghost small" id="btnEditCurrentPosting">Edit current posting</button>
     </div>
-    <div class="section-title">Additional charges / work allocations held</div>
+    <div class="section-title" style="display:flex; justify-content:space-between; align-items:center;">
+      <span>Additional charges / work allocations held</span>
+      <button class="btn ghost small" id="btnDrawerAddCharge">+ Add</button>
+    </div>
     <div id="drawerCharges"></div>
-    <div class="section-title">Work/Scheme assignments</div>
+    <div class="section-title" style="display:flex; justify-content:space-between; align-items:center;">
+      <span>Work/Scheme assignments</span>
+      <button class="btn ghost small" id="btnDrawerAddScheme">+ Add</button>
+    </div>
     <div id="drawerSchemes"></div>
   </div>
 </div>
@@ -1393,7 +1399,7 @@ function rebuildOtherFilterOptions(){
 }
 function avatarHtml(e, size){
   const s = size||32;
-  if(e.photo) return `<img class="avatar" style="width:${s}px;height:${s}px" src="${e.photo}">`;
+  if(e.photo) return `<img class="avatar" style="width:${s}px;height:${s}px" src="${e.photo}" onerror="this.outerHTML='&lt;div class=&quot;avatar-fallback&quot; style=&quot;width:${s}px;height:${s}px&quot;&gt;${initials(e.name)}&lt;/div&gt;'">`;
   return `<div class="avatar-fallback" style="width:${s}px;height:${s}px">${initials(e.name)}</div>`;
 }
 function getDirectoryRows(){
@@ -1401,7 +1407,17 @@ function getDirectoryRows(){
   const zf = zoneFilterEl.value, df = desigFilterEl.value, cf = categoryFilterEl.value, sf = sectionFilterEl.value;
   return employees.filter(e=>empInScope(e.id)).map(e=>{ const p=currentPosting(e.id); const ac=activeCharges(e.id); return {e,p,ac}; })
     .filter(({e,p})=>{
-      const mq = !q || e.name.toLowerCase().includes(q) || e.id.toLowerCase().includes(q) || (p && p.designation.toLowerCase().includes(q));
+      // Genuinely universal: name, Emp ID, designation, zone, section, category, and phone —
+      // not just the first three. (x||'') guards make this safe even if a field is missing
+      // on a given record, rather than risking a crash on real-world incomplete data.
+      const mq = !q
+        || (e.name||'').toLowerCase().includes(q)
+        || (e.id||'').toLowerCase().includes(q)
+        || (e.category||'').toLowerCase().includes(q)
+        || (e.phone||'').toLowerCase().includes(q)
+        || (p && (p.designation||'').toLowerCase().includes(q))
+        || (p && (p.zone||'').toLowerCase().includes(q))
+        || (p && (p.section||'').toLowerCase().includes(q));
       const mz = !zf || (p && p.zone===zf);
       const md = !df || (p && p.designation===df);
       const mc = !cf || e.category===cf;
@@ -1411,14 +1427,14 @@ function getDirectoryRows(){
     .sort((a,b)=>{
       // G.O. 152 hierarchy first (Commissioner, Deputy Commissioner, ...), unranked
       // designations after that (alphabetical), no-active-posting rows last of all.
-      if(!a.p && !b.p) return a.e.name.localeCompare(b.e.name);
+      if(!a.p && !b.p) return (a.e.name||'').localeCompare(b.e.name||'');
       if(!a.p) return 1;
       if(!b.p) return -1;
       const rankA = GO152_ORDER[a.p.designation] || 9999;
       const rankB = GO152_ORDER[b.p.designation] || 9999;
       if(rankA !== rankB) return rankA - rankB;
-      if(rankA===9999 && a.p.designation !== b.p.designation) return a.p.designation.localeCompare(b.p.designation);
-      return a.e.name.localeCompare(b.e.name);
+      if(rankA===9999 && a.p.designation !== b.p.designation) return (a.p.designation||'').localeCompare(b.p.designation||'');
+      return (a.e.name||'').localeCompare(b.e.name||'');
     });
 }
 function deputationPill(e){
@@ -1595,7 +1611,9 @@ document.getElementById('btnOpenExport').addEventListener('click', ()=>{
 function photoFieldHtml(existingPhoto){
   return `<div class="field"><label>Photo</label><div class="photo-row">
     ${existingPhoto ? `<img class="avatar" id="photoPreview" src="${existingPhoto}">` : `<div class="avatar-fallback" id="photoPreview">?</div>`}
-    <input type="file" id="photoInput" accept="image/*"></div></div>`;
+    <input type="file" id="photoInput" accept="image/*">
+    ${existingPhoto ? `<button type="button" class="btn ghost small" id="removePhotoBtn">Remove photo</button>` : ''}
+    </div></div>`;
 }
 function wirePhotoInput(){
   const input = document.getElementById('photoInput');
@@ -1607,8 +1625,25 @@ function wirePhotoInput(){
     reader.onload = ()=>{ const dataUrl = reader.result; document.getElementById('photoPreview').outerHTML = `<img class="avatar" id="photoPreview" src="${dataUrl}">`; input.dataset.value = dataUrl; };
     reader.readAsDataURL(file);
   });
+  const removeBtn = document.getElementById('removePhotoBtn');
+  if(removeBtn){
+    removeBtn.addEventListener('click', ()=>{
+      document.getElementById('photoPreview').outerHTML = `<div class="avatar-fallback" id="photoPreview">?</div>`;
+      input.dataset.value = '__REMOVE__'; // distinct from "untouched" — see currentPhotoValue()
+      removeBtn.remove();
+    });
+  }
 }
-function currentPhotoValue(){ const input = document.getElementById('photoInput'); return input ? (input.dataset.value || null) : null; }
+// Three distinct outcomes, not two: undefined = field untouched (keep whatever photo already
+// existed), null = user explicitly clicked "Remove photo", a data: URL = a newly chosen photo.
+// The old version only had a falsy/truthy check, which made "untouched" and "explicitly
+// removed" indistinguishable — there was no way to actually clear a photo, only add one.
+function currentPhotoValue(){
+  const input = document.getElementById('photoInput');
+  if(!input || input.dataset.value===undefined) return undefined;
+  if(input.dataset.value === '__REMOVE__') return null;
+  return input.dataset.value;
+}
 
 /* ---------------- Deputation field (shared by Add/Edit employee modals) ---------------- */
 function deputationFieldHtml(dep){
@@ -1643,50 +1678,84 @@ function readDeputationFromForm(){
 /* ---------------- Drawer ---------------- */
 let drawerEmpId = null;
 function openDrawer(empId){
-  drawerEmpId = empId;
-  const e = employees.find(x=>x.id===empId);
-  document.getElementById('drawerAvatarWrap').innerHTML = avatarHtml(e, 58);
-  document.getElementById('drawerName').textContent = e.name;
-  document.getElementById('drawerId').textContent = e.id;
-  document.getElementById('drawerFields').innerHTML = `
-    <div><label>Category</label><span>${e.category}</span></div>
-    <div><label>Caste</label><span>${e.caste||'—'}</span></div>
-    <div><label>Recruitment</label><span>${e.recruitmentType||'—'}</span></div>
-    <div><label>Date of joining</label><span>${fmtDate(e.doj)}</span></div>
-    <div><label>Date of birth</label><span>${fmtDate(e.dob)}</span></div>
-    <div><label>Retirement date <span style="font-weight:400; text-transform:none;">(auto, last day of the month turning 60)</span></label><span>${e.dob ? fmtDate(calcRetirementDate(e.dob)) : '—'}</span></div>
-    <div><label>Native location</label><span>${e.native||'—'}</span></div>
-    <div><label>Phone</label><span>${e.phone||'—'}</span></div>
-    <div><label>Email</label><span>${e.email||'—'}</span></div>
-    <div><label>Deputation</label><span>${e.deputation ? (e.deputation.type==='out'?'Deputed out to '+(e.deputation.org||'—'):'Deputed in from '+(e.deputation.org||'—')) : 'None'}</span></div>`;
-  const hist = postings.filter(p=>p.empId===empId).sort((a,b)=>b.start.localeCompare(a.start));
-  document.getElementById('drawerPostings').innerHTML = hist.length ? hist.map(p=>`
-    <div class="history-row"><div><b>${p.designation}</b><br><span style="color:var(--ink-faint)">${p.zone} · ${p.section}</span></div>
-    <div style="text-align:right;">
-      <div style="white-space:nowrap;">${fmtDate(p.start)} – ${p.end?fmtDate(p.end):'<span class="pill green">Current</span>'}</div>
-      ${isAdmin() ? `<div style="margin-top:5px;"><button class="btn ghost small" data-edit-posting="${p.id}">Edit</button> <button class="btn danger small" data-del-posting="${p.id}">Delete</button></div>` : ''}
-    </div></div>`).join('')
-    : '<div class="empty">No postings recorded.</div>';
-  document.querySelectorAll('[data-edit-posting]').forEach(b=> b.addEventListener('click', ()=> openEditPosting(b.dataset.editPosting)));
-  document.querySelectorAll('[data-del-posting]').forEach(b=> b.addEventListener('click', ()=>{
-    const pid = b.dataset.delPosting;
-    confirmModal('Delete posting record', 'Permanently remove this posting history entry? This cannot be undone.', ()=>{
-      postings = postings.filter(x=>x.id!==pid);
-      if(backendConfigured()) persist('deletePosting', {id:pid});
-      openDrawer(empId); renderDirectory(); renderDashboard(); toast('Posting record deleted.');
-    });
-  }));
-  const ac = charges.filter(c=>c.empId===empId).sort((a,b)=>b.start.localeCompare(a.start));
-  document.getElementById('drawerCharges').innerHTML = ac.length ? ac.map(c=>`
-    <div class="history-row"><div><b>${c.role}</b><br><span style="color:var(--ink-faint)">${c.zone} · ${c.section}</span></div>
-    <div style="text-align:right; white-space:nowrap;">${fmtDate(c.start)} – ${c.end?fmtDate(c.end):'<span class="pill green">Current</span>'}</div></div>`).join('')
-    : '<div class="empty">No additional charges or work allocations.</div>';
-  const sc = schemes.filter(s=>s.empId===empId).sort((a,b)=>b.start.localeCompare(a.start));
-  document.getElementById('drawerSchemes').innerHTML = sc.length ? sc.map(s=>`
-    <div class="history-row"><div><b>${s.scheme}</b></div>
-    <div style="text-align:right; white-space:nowrap;">${fmtDate(s.start)} – ${s.end?fmtDate(s.end):'<span class="pill green">Current</span>'}</div></div>`).join('')
-    : '<div class="empty">No work/scheme assignments.</div>';
-  document.getElementById('drawerOverlay').classList.add('open');
+  try{
+    drawerEmpId = empId;
+    const e = employees.find(x=>x.id===empId);
+    if(!e){ toast('Could not find that employee — try refreshing.'); console.error('openDrawer: no employee found for id', empId); return; }
+    document.getElementById('drawerAvatarWrap').innerHTML = avatarHtml(e, 58);
+    document.getElementById('drawerName').textContent = e.name;
+    document.getElementById('drawerId').textContent = e.id;
+    document.getElementById('drawerFields').innerHTML = `
+      <div><label>Category</label><span>${e.category||'—'}</span></div>
+      <div><label>Caste</label><span>${e.caste||'—'}</span></div>
+      <div><label>Recruitment</label><span>${e.recruitmentType||'—'}</span></div>
+      <div><label>Date of joining</label><span>${fmtDate(e.doj)}</span></div>
+      <div><label>Date of birth</label><span>${fmtDate(e.dob)}</span></div>
+      <div><label>Retirement date <span style="font-weight:400; text-transform:none;">(auto, last day of the month turning 60)</span></label><span>${e.dob ? fmtDate(calcRetirementDate(e.dob)) : '—'}</span></div>
+      <div><label>Native location</label><span>${e.native||'—'}</span></div>
+      <div><label>Phone</label><span>${e.phone||'—'}</span></div>
+      <div><label>Email</label><span>${e.email||'—'}</span></div>
+      <div><label>Deputation</label><span>${e.deputation ? (e.deputation.type==='out'?'Deputed out to '+(e.deputation.org||'—'):'Deputed in from '+(e.deputation.org||'—')) : 'None'}</span></div>`;
+    // (x.start||'') guards below: a posting/charge/scheme row with a genuinely missing start
+    // date (undefined, not just blank) used to throw here and silently kill the whole drawer
+    // render with no error shown — this is very likely what "clicking does nothing for some
+    // employees" actually was. The try/catch around this whole function is the backstop for
+    // anything else in the same shape we haven't found yet: it can now never fail silently.
+    const hist = postings.filter(p=>p.empId===empId).sort((a,b)=>(b.start||'').localeCompare(a.start||''));
+    document.getElementById('drawerPostings').innerHTML = hist.length ? hist.map(p=>`
+      <div class="history-row"><div><b>${p.designation}</b><br><span style="color:var(--ink-faint)">${p.zone} · ${p.section}</span></div>
+      <div style="text-align:right;">
+        <div style="white-space:nowrap;">${fmtDate(p.start)} – ${p.end?fmtDate(p.end):'<span class="pill green">Current</span>'}</div>
+        ${isAdmin() ? `<div style="margin-top:5px;"><button class="btn ghost small" data-edit-posting="${p.id}">Edit</button> <button class="btn danger small" data-del-posting="${p.id}">Delete</button></div>` : ''}
+      </div></div>`).join('')
+      : '<div class="empty">No postings recorded.</div>';
+    document.querySelectorAll('[data-edit-posting]').forEach(b=> b.addEventListener('click', ()=> openEditPosting(b.dataset.editPosting)));
+    document.querySelectorAll('[data-del-posting]').forEach(b=> b.addEventListener('click', ()=>{
+      const pid = b.dataset.delPosting;
+      confirmModal('Delete posting record', 'Permanently remove this posting history entry? This cannot be undone.', ()=>{
+        postings = postings.filter(x=>x.id!==pid);
+        if(backendConfigured()) persist('deletePosting', {id:pid});
+        openDrawer(empId); renderDirectory(); renderDashboard(); toast('Posting record deleted.');
+      });
+    }));
+    // Additional charges — now with inline Edit/End/Delete right in the drawer, not just a
+    // read-only list, so managing them no longer requires leaving to the separate tab.
+    const ac = charges.filter(c=>c.empId===empId).sort((a,b)=>(b.start||'').localeCompare(a.start||''));
+    document.getElementById('drawerCharges').innerHTML = ac.length ? ac.map(c=>`
+      <div class="history-row"><div><b>${c.role || '<span class="pill gray">Role not yet specified</span>'}</b><br><span style="color:var(--ink-faint)">${c.zone} · ${c.section}</span></div>
+      <div style="text-align:right;">
+        <div style="white-space:nowrap;">${fmtDate(c.start)} – ${c.end?fmtDate(c.end):'<span class="pill green">Current</span>'}</div>
+        <div style="margin-top:5px;">
+          ${c.end?'':`<button class="btn ghost small" data-drawer-close-charge="${c.id}">End</button>`}
+          <button class="btn ghost small" data-drawer-edit-charge="${c.id}">Edit</button>
+          <button class="btn danger small" data-drawer-del-charge="${c.id}">Delete</button>
+        </div>
+      </div></div>`).join('')
+      : '<div class="empty">No additional charges or work allocations.</div>';
+    document.querySelectorAll('[data-drawer-edit-charge]').forEach(b=> b.addEventListener('click', ()=> openEditCharge(b.dataset.drawerEditCharge, ()=>openDrawer(empId))));
+    document.querySelectorAll('[data-drawer-close-charge]').forEach(b=> b.addEventListener('click', ()=> endChargeRecord(b.dataset.drawerCloseCharge, ()=>openDrawer(empId))));
+    document.querySelectorAll('[data-drawer-del-charge]').forEach(b=> b.addEventListener('click', ()=> deleteChargeRecord(b.dataset.drawerDelCharge, ()=>openDrawer(empId))));
+    // Work/scheme assignments — same treatment: full inline control from the drawer.
+    const sc = schemes.filter(s=>s.empId===empId).sort((a,b)=>(b.start||'').localeCompare(a.start||''));
+    document.getElementById('drawerSchemes').innerHTML = sc.length ? sc.map(s=>`
+      <div class="history-row"><div><b>${s.scheme || '<span class="pill gray">Name not yet specified</span>'}</b></div>
+      <div style="text-align:right;">
+        <div style="white-space:nowrap;">${fmtDate(s.start)} – ${s.end?fmtDate(s.end):'<span class="pill green">Current</span>'}</div>
+        <div style="margin-top:5px;">
+          ${s.end?'':`<button class="btn ghost small" data-drawer-close-scheme="${s.id}">End</button>`}
+          <button class="btn ghost small" data-drawer-edit-scheme="${s.id}">Edit</button>
+          <button class="btn danger small" data-drawer-del-scheme="${s.id}">Delete</button>
+        </div>
+      </div></div>`).join('')
+      : '<div class="empty">No work/scheme assignments.</div>';
+    document.querySelectorAll('[data-drawer-edit-scheme]').forEach(b=> b.addEventListener('click', ()=> openEditScheme(b.dataset.drawerEditScheme, ()=>openDrawer(empId))));
+    document.querySelectorAll('[data-drawer-close-scheme]').forEach(b=> b.addEventListener('click', ()=> endSchemeRecord(b.dataset.drawerCloseScheme, ()=>openDrawer(empId))));
+    document.querySelectorAll('[data-drawer-del-scheme]').forEach(b=> b.addEventListener('click', ()=> deleteSchemeRecord(b.dataset.drawerDelScheme, ()=>openDrawer(empId))));
+    document.getElementById('drawerOverlay').classList.add('open');
+  } catch(err){
+    console.error('openDrawer failed for', empId, err);
+    toast('Something went wrong opening that employee — check the browser console (F12) and let support know what it says.');
+  }
 }
 document.getElementById('closeDrawer').addEventListener('click', ()=>document.getElementById('drawerOverlay').classList.remove('open'));
 document.getElementById('drawerOverlay').addEventListener('click',(e)=>{ if(e.target.id==='drawerOverlay') e.currentTarget.classList.remove('open'); });
@@ -1809,7 +1878,12 @@ document.getElementById('btnEditEmployee').addEventListener('click', ()=>{
     e.caste=document.getElementById('e_caste').value; e.recruitmentType=document.getElementById('e_recruit').value;
     e.native=document.getElementById('e_native').value; e.phone=document.getElementById('e_phone').value; e.email=document.getElementById('e_email').value;
     e.deputation = readDeputationFromForm();
-    const newPhoto = currentPhotoValue(); if(newPhoto) e.photo = newPhoto;
+    const newPhoto = currentPhotoValue();
+    // undefined = field untouched (keep e.photo as-is); null = explicit "Remove photo" click
+    // (must actually clear it — the old `if(newPhoto)` check treated null as falsy and
+    // silently ignored the removal, which is exactly why there was no way to delete a photo);
+    // a string = a newly chosen replacement.
+    if(newPhoto !== undefined) e.photo = newPhoto;
 
     const idChanged = newId !== oldId;
     if(idChanged){
@@ -1930,6 +2004,8 @@ document.getElementById('btnEditCurrentPosting').addEventListener('click', ()=>{
     closeModal(); openDrawer(drawerEmpId); renderDirectory(); renderDashboard(); toast('Current posting corrected.');
   });
 });
+document.getElementById('btnDrawerAddCharge').addEventListener('click', ()=> openAddChargeModal(drawerEmpId, ()=>openDrawer(drawerEmpId)));
+document.getElementById('btnDrawerAddScheme').addEventListener('click', ()=> openAddSchemeModal(drawerEmpId, ()=>openDrawer(drawerEmpId)));
 
 // Admin-only: full edit of any posting history row — designation, zone, section, AND both dates.
 function openEditPosting(id){
@@ -1960,44 +2036,19 @@ function openEditPosting(id){
 }
 
 /* ---------------- Charges (edit/delete) ---------------- */
-function renderCharges(){
+function chargeModalFields(c, presetEmpId){
   const vz = visibleZones();
-  const body=document.getElementById('chargesBody');
-  const rows=charges.filter(c=>vz.includes(c.zone)).sort((a,b)=>(a.end?1:0)-(b.end?1:0));
-  body.innerHTML = rows.map(c=>`
-    <tr><td data-label="Employee">${empName(c.empId)} <span class="mono" style="color:var(--ink-faint)">(${c.empId})</span></td>
-    <td data-label="Role">${c.role || '<span class="pill gray">Role not yet specified</span>'}</td><td data-label="Zone / Section">${c.zone} · ${c.section}</td><td data-label="Start date">${fmtDate(c.start)}</td>
-    <td data-label="Status">${c.end?`<span class="pill red">Closed ${fmtDate(c.end)}</span>`:'<span class="pill green">Current</span>'}</td>
-    <td data-label=""><div class="row-actions">
-      ${c.end?'':`<button class="btn ghost small" data-close-charge="${c.id}">End</button>`}
-      <button class="btn ghost small" data-edit-charge="${c.id}">Edit</button>
-      <button class="btn danger small" data-del-charge="${c.id}">Delete</button>
-    </div></td></tr>`).join('');
-  body.querySelectorAll('[data-close-charge]').forEach(b=> b.addEventListener('click', ()=>{
-    const c = charges.find(x=>x.id===b.dataset.closeCharge); c.end=new Date().toISOString().slice(0,10);
-    if(backendConfigured()) persist('endCharge', {id:c.id, end:c.end});
-    renderCharges(); renderDashboard(); toast('Charge / work allocation ended.');
-  }));
-  body.querySelectorAll('[data-del-charge]').forEach(b=> b.addEventListener('click', ()=>{
-    confirmModal('Delete charge', 'Remove this additional-charge record entirely?', ()=>{
-      charges = charges.filter(x=>x.id!==b.dataset.delCharge);
-      if(backendConfigured()) persist('deleteCharge', {id:b.dataset.delCharge});
-      renderCharges(); renderDashboard(); toast('Charge deleted.');
-    });
-  }));
-  body.querySelectorAll('[data-edit-charge]').forEach(b=> b.addEventListener('click', ()=> openEditCharge(b.dataset.editCharge)));
-}
-function chargeModalFields(c){
-  const vz = visibleZones();
+  const lockEmp = !!c || !!presetEmpId;
+  const selectedEmpId = c ? c.empId : presetEmpId;
   return `
-    <div class="field"><label>Employee</label><select id="c_emp" ${c?'disabled':''}>${employees.filter(e=>empInScope(e.id)).map(e=>`<option value="${e.id}" ${c&&c.empId===e.id?'selected':''}>${e.name} (${e.id})</option>`).join('')}</select></div>
+    <div class="field"><label>Employee</label><select id="c_emp" ${lockEmp?'disabled':''}>${employees.filter(e=>empInScope(e.id)).map(e=>`<option value="${e.id}" ${selectedEmpId===e.id?'selected':''}>${e.name} (${e.id})</option>`).join('')}</select></div>
     <div class="field"><label>Role title</label><input type="text" id="c_role" value="${c?c.role:''}" placeholder="e.g. In-charge, Zone 2 Accounts"></div>
     <div class="field"><label>Zone</label><select id="c_zone">${vz.map(z=>`<option ${c&&c.zone===z?'selected':''}>${z}</option>`).join('')}</select></div>
     <div class="field"><label>Section</label><select id="c_section">${SECTIONS.map(s=>`<option ${c&&c.section===s?'selected':''}>${s}</option>`).join('')}</select></div>
     <div class="field"><label>Start date</label><input type="date" id="c_start" value="${c?c.start:''}"></div>`;
 }
-document.getElementById('btnAddCharge').addEventListener('click', ()=>{
-  openModal(`<h3>Assign charge / work allocation</h3><div class="hint">Held alongside the employee's real posting — doesn't replace it. Use this for formal in-charge appointments as well as informal work allocations (e.g. a Sanitary Worker covering a Junior Assistant seat). Role and date are optional — save now and fill them in later once you have the details.</div>${chargeModalFields(null)}
+function openAddChargeModal(presetEmpId, afterSave){
+  openModal(`<h3>Assign charge / work allocation</h3><div class="hint">Held alongside the employee's real posting — doesn't replace it. Use this for formal in-charge appointments as well as informal work allocations (e.g. a Sanitary Worker covering a Junior Assistant seat). Role and date are optional — save now and fill them in later once you have the details.</div>${chargeModalFields(null, presetEmpId)}
     <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="saveCharge">Assign</button></div>`);
   document.getElementById('saveCharge').addEventListener('click', async ()=>{
     const role=document.getElementById('c_role').value.trim(); const start=document.getElementById('c_start').value;
@@ -2011,11 +2062,13 @@ document.getElementById('btnAddCharge').addEventListener('click', ()=>{
       id = res.ok ? res.data.id : ("CHG-"+Date.now());
     } else { seq.chg++; id = "CHG-"+pad(seq.chg); }
     charges.push({id, empId, role, zone, section, start, end:null});
-    closeModal(); renderCharges(); renderDashboard(); toast('Charge / work allocation assigned.');
+    closeModal(); renderDashboard(); toast('Charge / work allocation assigned.');
+    if(afterSave) afterSave(); else if(document.getElementById('chargesBody')) renderCharges();
     } finally { clearBtnLoading(btn); }
   });
-});
-function openEditCharge(id){
+}
+document.getElementById('btnAddCharge').addEventListener('click', ()=> openAddChargeModal(null));
+function openEditCharge(id, afterSave){
   const c = charges.find(x=>x.id===id);
   openModal(`<h3>Edit charge / work allocation</h3>${chargeModalFields(c)}
     <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="saveEditCharge">Save changes</button></div>`);
@@ -2023,45 +2076,53 @@ function openEditCharge(id){
     c.role=document.getElementById('c_role').value.trim(); c.zone=document.getElementById('c_zone').value;
     c.section=document.getElementById('c_section').value; c.start=document.getElementById('c_start').value;
     if(backendConfigured()) persist('updateCharge', {id:c.id, fields:{role:c.role, zone:c.zone, section:c.section, start:c.start}});
-    closeModal(); renderCharges(); renderDashboard(); toast('Charge updated.');
+    closeModal(); renderDashboard(); toast('Charge updated.');
+    if(afterSave) afterSave(); else if(document.getElementById('chargesBody')) renderCharges();
   });
+}
+function endChargeRecord(id, afterSave){
+  const c = charges.find(x=>x.id===id); c.end=new Date().toISOString().slice(0,10);
+  if(backendConfigured()) persist('endCharge', {id:c.id, end:c.end});
+  renderDashboard(); toast('Charge / work allocation ended.');
+  if(afterSave) afterSave(); else if(document.getElementById('chargesBody')) renderCharges();
+}
+function deleteChargeRecord(id, afterSave){
+  confirmModal('Delete charge', 'Remove this additional-charge record entirely?', ()=>{
+    charges = charges.filter(x=>x.id!==id);
+    if(backendConfigured()) persist('deleteCharge', {id});
+    renderDashboard(); toast('Charge deleted.');
+    if(afterSave) afterSave(); else if(document.getElementById('chargesBody')) renderCharges();
+  });
+}
+function renderCharges(){
+  const vz = visibleZones();
+  const body=document.getElementById('chargesBody');
+  const rows=charges.filter(c=>vz.includes(c.zone)).sort((a,b)=>(a.end?1:0)-(b.end?1:0));
+  body.innerHTML = rows.map(c=>`
+    <tr><td data-label="Employee">${empName(c.empId)} <span class="mono" style="color:var(--ink-faint)">(${c.empId})</span></td>
+    <td data-label="Role">${c.role || '<span class="pill gray">Role not yet specified</span>'}</td><td data-label="Zone / Section">${c.zone} · ${c.section}</td><td data-label="Start date">${fmtDate(c.start)}</td>
+    <td data-label="Status">${c.end?`<span class="pill red">Closed ${fmtDate(c.end)}</span>`:'<span class="pill green">Current</span>'}</td>
+    <td data-label=""><div class="row-actions">
+      ${c.end?'':`<button class="btn ghost small" data-close-charge="${c.id}">End</button>`}
+      <button class="btn ghost small" data-edit-charge="${c.id}">Edit</button>
+      <button class="btn danger small" data-del-charge="${c.id}">Delete</button>
+    </div></td></tr>`).join('');
+  body.querySelectorAll('[data-close-charge]').forEach(b=> b.addEventListener('click', ()=> endChargeRecord(b.dataset.closeCharge)));
+  body.querySelectorAll('[data-del-charge]').forEach(b=> b.addEventListener('click', ()=> deleteChargeRecord(b.dataset.delCharge)));
+  body.querySelectorAll('[data-edit-charge]').forEach(b=> b.addEventListener('click', ()=> openEditCharge(b.dataset.editCharge)));
 }
 
 /* ---------------- Work/Scheme (edit/delete) ---------------- */
-function renderSchemes(){
-  const scopedEmpIds = employees.filter(e=>empInScope(e.id)).map(e=>e.id);
-  const body=document.getElementById('schemesBody');
-  const rows=schemes.filter(s=>scopedEmpIds.includes(s.empId)).sort((a,b)=>(a.end?1:0)-(b.end?1:0));
-  body.innerHTML = rows.map(s=>`
-    <tr><td data-label="Work / Scheme">${s.scheme || '<span class="pill gray">Name not yet specified</span>'}</td><td data-label="Officer">${empName(s.empId)} <span class="mono" style="color:var(--ink-faint)">(${s.empId})</span></td>
-    <td data-label="Start date">${fmtDate(s.start)}</td><td data-label="Status">${s.end?`<span class="pill red">Closed ${fmtDate(s.end)}</span>`:'<span class="pill green">Current</span>'}</td>
-    <td data-label=""><div class="row-actions">
-      ${s.end?'':`<button class="btn ghost small" data-close-scheme="${s.id}">End</button>`}
-      <button class="btn ghost small" data-edit-scheme="${s.id}">Edit</button>
-      <button class="btn danger small" data-del-scheme="${s.id}">Delete</button>
-    </div></td></tr>`).join('');
-  body.querySelectorAll('[data-close-scheme]').forEach(b=> b.addEventListener('click', ()=>{
-    const s = schemes.find(x=>x.id===b.dataset.closeScheme); s.end=new Date().toISOString().slice(0,10);
-    if(backendConfigured()) persist('endScheme', {id:s.id, end:s.end});
-    renderSchemes(); renderDashboard(); toast('Assignment ended.');
-  }));
-  body.querySelectorAll('[data-del-scheme]').forEach(b=> b.addEventListener('click', ()=>{
-    confirmModal('Delete assignment', 'Remove this work/scheme assignment entirely?', ()=>{
-      schemes = schemes.filter(x=>x.id!==b.dataset.delScheme);
-      if(backendConfigured()) persist('deleteScheme', {id:b.dataset.delScheme});
-      renderSchemes(); renderDashboard(); toast('Assignment deleted.');
-    });
-  }));
-  body.querySelectorAll('[data-edit-scheme]').forEach(b=> b.addEventListener('click', ()=> openEditScheme(b.dataset.editScheme)));
-}
-function schemeModalFields(s){
+function schemeModalFields(s, presetEmpId){
+  const lockEmp = !!s || !!presetEmpId;
+  const selectedEmpId = s ? s.empId : presetEmpId;
   return `
     <div class="field"><label>Work / Scheme name</label><input type="text" id="s_name" value="${s?s.scheme:''}" placeholder="e.g. AMRUT 2.0"></div>
-    <div class="field"><label>Assigned officer</label><select id="s_emp" ${s?'disabled':''}>${employees.filter(e=>empInScope(e.id)).map(e=>`<option value="${e.id}" ${s&&s.empId===e.id?'selected':''}>${e.name} (${e.id})</option>`).join('')}</select></div>
+    <div class="field"><label>Assigned officer</label><select id="s_emp" ${lockEmp?'disabled':''}>${employees.filter(e=>empInScope(e.id)).map(e=>`<option value="${e.id}" ${selectedEmpId===e.id?'selected':''}>${e.name} (${e.id})</option>`).join('')}</select></div>
     <div class="field"><label>Start date</label><input type="date" id="s_start" value="${s?s.start:''}"></div>`;
 }
-document.getElementById('btnAddScheme').addEventListener('click', ()=>{
-  openModal(`<h3>Assign work / scheme</h3><div class="hint">Name and date are optional — save now and fill them in later once you have the details.</div>${schemeModalFields(null)}
+function openAddSchemeModal(presetEmpId, afterSave){
+  openModal(`<h3>Assign work / scheme</h3><div class="hint">Name and date are optional — save now and fill them in later once you have the details.</div>${schemeModalFields(null, presetEmpId)}
     <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="saveScheme">Assign</button></div>`);
   document.getElementById('saveScheme').addEventListener('click', async ()=>{
     const name=document.getElementById('s_name').value.trim(); const start=document.getElementById('s_start').value;
@@ -2075,19 +2136,52 @@ document.getElementById('btnAddScheme').addEventListener('click', ()=>{
       id = res.ok ? res.data.id : ("SCH-"+Date.now());
     } else { seq.sch++; id = "SCH-"+pad(seq.sch); }
     schemes.push({id, scheme:name, empId, start, end:null});
-    closeModal(); renderSchemes(); renderDashboard(); toast('Work/scheme assignment recorded.');
+    closeModal(); renderDashboard(); toast('Work/scheme assignment recorded.');
+    if(afterSave) afterSave(); else if(document.getElementById('schemesBody')) renderSchemes();
     } finally { clearBtnLoading(btn); }
   });
-});
-function openEditScheme(id){
+}
+document.getElementById('btnAddScheme').addEventListener('click', ()=> openAddSchemeModal(null));
+function openEditScheme(id, afterSave){
   const s = schemes.find(x=>x.id===id);
   openModal(`<h3>Edit work/scheme assignment</h3>${schemeModalFields(s)}
     <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="saveEditScheme">Save changes</button></div>`);
   document.getElementById('saveEditScheme').addEventListener('click', ()=>{
     s.scheme=document.getElementById('s_name').value.trim(); s.start=document.getElementById('s_start').value;
     if(backendConfigured()) persist('updateScheme', {id:s.id, fields:{scheme:s.scheme, start:s.start}});
-    closeModal(); renderSchemes(); renderDashboard(); toast('Assignment updated.');
+    closeModal(); renderDashboard(); toast('Assignment updated.');
+    if(afterSave) afterSave(); else if(document.getElementById('schemesBody')) renderSchemes();
   });
+}
+function endSchemeRecord(id, afterSave){
+  const s = schemes.find(x=>x.id===id); s.end=new Date().toISOString().slice(0,10);
+  if(backendConfigured()) persist('endScheme', {id:s.id, end:s.end});
+  renderDashboard(); toast('Assignment ended.');
+  if(afterSave) afterSave(); else if(document.getElementById('schemesBody')) renderSchemes();
+}
+function deleteSchemeRecord(id, afterSave){
+  confirmModal('Delete assignment', 'Remove this work/scheme assignment entirely?', ()=>{
+    schemes = schemes.filter(x=>x.id!==id);
+    if(backendConfigured()) persist('deleteScheme', {id});
+    renderDashboard(); toast('Assignment deleted.');
+    if(afterSave) afterSave(); else if(document.getElementById('schemesBody')) renderSchemes();
+  });
+}
+function renderSchemes(){
+  const scopedEmpIds = employees.filter(e=>empInScope(e.id)).map(e=>e.id);
+  const body=document.getElementById('schemesBody');
+  const rows=schemes.filter(s=>scopedEmpIds.includes(s.empId)).sort((a,b)=>(a.end?1:0)-(b.end?1:0));
+  body.innerHTML = rows.map(s=>`
+    <tr><td data-label="Work / Scheme">${s.scheme || '<span class="pill gray">Name not yet specified</span>'}</td><td data-label="Officer">${empName(s.empId)} <span class="mono" style="color:var(--ink-faint)">(${s.empId})</span></td>
+    <td data-label="Start date">${fmtDate(s.start)}</td><td data-label="Status">${s.end?`<span class="pill red">Closed ${fmtDate(s.end)}</span>`:'<span class="pill green">Current</span>'}</td>
+    <td data-label=""><div class="row-actions">
+      ${s.end?'':`<button class="btn ghost small" data-close-scheme="${s.id}">End</button>`}
+      <button class="btn ghost small" data-edit-scheme="${s.id}">Edit</button>
+      <button class="btn danger small" data-del-scheme="${s.id}">Delete</button>
+    </div></td></tr>`).join('');
+  body.querySelectorAll('[data-close-scheme]').forEach(b=> b.addEventListener('click', ()=> endSchemeRecord(b.dataset.closeScheme)));
+  body.querySelectorAll('[data-del-scheme]').forEach(b=> b.addEventListener('click', ()=> deleteSchemeRecord(b.dataset.delScheme)));
+  body.querySelectorAll('[data-edit-scheme]').forEach(b=> b.addEventListener('click', ()=> openEditScheme(b.dataset.editScheme)));
 }
 
 /* =================================================================
@@ -2350,7 +2444,7 @@ document.getElementById('btnVacancyExportPDF').addEventListener('click', ()=>{
       head:[['Sl.No','Designation','Cadre (per G.O. 152)','Sanct.','Fill.','Status']],
       body: group.rows.map(r=>[r.serial, r.designation, r.cadre, r.sanctioned, r.filled, r.status]),
       styles:{fontSize:7, cellPadding:1.6, overflow:'linebreak'},
-      columnStyles:{0:{cellWidth:9}, 1:{cellWidth:38}, 2:{cellWidth:42}, 3:{cellWidth:14}, 4:{cellWidth:12}, 5:{cellWidth:'auto'}},
+      columnStyles:{0:{cellWidth:13}, 1:{cellWidth:36}, 2:{cellWidth:40}, 3:{cellWidth:14}, 4:{cellWidth:12}, 5:{cellWidth:'auto'}},
       headStyles:{fillColor:[47,95,224], textColor:255, fontSize:7},
       alternateRowStyles:{fillColor:[247,249,252]},
       margin:{left:14, right:14},
@@ -2365,7 +2459,7 @@ document.getElementById('btnVacancyExportPDF').addEventListener('click', ()=>{
     startY: y,
     body:[['', 'TOTAL — ALL SECTIONS COMBINED', '', String(d.totalSanctioned), String(d.totalFilled), `${d.totalVacant} vacant`]],
     styles:{fontSize:7.5, fontStyle:'bold', cellPadding:2, fillColor:[231,238,254], textColor:20},
-    columnStyles:{0:{cellWidth:9}, 1:{cellWidth:38}, 2:{cellWidth:42}, 3:{cellWidth:14}, 4:{cellWidth:12}, 5:{cellWidth:'auto'}},
+    columnStyles:{0:{cellWidth:13}, 1:{cellWidth:36}, 2:{cellWidth:40}, 3:{cellWidth:14}, 4:{cellWidth:12}, 5:{cellWidth:'auto'}},
     margin:{left:14, right:14},
   });
 
