@@ -1045,7 +1045,7 @@ function suggestNextEmpId(){ return "SCM-"+pad(seq.emp+1); }
 
 function currentPosting(empId){ return postings.find(p=>p.empId===empId && !p.end) || null; }
 function activeCharges(empId){ return charges.filter(c=>c.empId===empId && !c.end); }
-function empName(empId){ const e=employees.find(x=>x.id===empId); return e?e.name:empId; }
+function empName(empId){ const e=employees.find(x=>String(x.id)===String(empId)); return e?e.name:empId; }
 function fmtDate(d){
   if(!d) return "—";
   // Defensive: handle a value that already carries a time component (e.g. if it ever
@@ -1680,7 +1680,10 @@ let drawerEmpId = null;
 function openDrawer(empId){
   try{
     drawerEmpId = empId;
-    const e = employees.find(x=>x.id===empId);
+    // String() coercion: the backend now normalises ids to strings at the source (see
+    // Code.gs's readAll comment), but this stays as a second line of defense in case a
+    // numeric id ever reaches here through some other path.
+    const e = employees.find(x=>String(x.id)===String(empId));
     if(!e){ toast('Could not find that employee — try refreshing.'); console.error('openDrawer: no employee found for id', empId); return; }
     document.getElementById('drawerAvatarWrap').innerHTML = avatarHtml(e, 58);
     document.getElementById('drawerName').textContent = e.name;
