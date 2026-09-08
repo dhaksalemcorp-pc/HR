@@ -2118,7 +2118,12 @@ function getVacancyRows(scopeZone){
 }
 function statusPillFor(designation, sanctioned, filled){
   const diff = sanctioned - filled;
-  if(sanctioned===0 && (FIELD_DESIGNATIONS.includes(designation) || INTERNAL_DESIGNATIONS.includes(designation))){
+  // "Not covered by G.O. 152" applies to ANY designation the G.O. doesn't actually define —
+  // not just the handful in FIELD_DESIGNATIONS. That list is only used for the separate
+  // "Internal use" tag; whether something belongs in the sanctioned cadre at all is decided
+  // by GO152_SECTION, so a real-world designation like "Skilled Grade - 2" (from bulk import,
+  // not in the G.O.) is correctly caught here too, not just the roles we happened to name.
+  if(sanctioned===0 && !GO152_SECTION[designation]){
     return INTERNAL_DESIGNATIONS.includes(designation)
       ? '<span class="pill gray">Internal use — not in G.O. 152</span>'
       : '<span class="pill gray">Not covered by G.O. 152</span>';
@@ -2152,8 +2157,13 @@ function renderVacancy(){
     ${statCard('#EFEBFF','var(--purple)', iconStar(), totalExcess, 'Total excess (over strength)')}
   `;
 
-  const cadreRows = rows.filter(r=> !FIELD_DESIGNATIONS.includes(r.designation) && !INTERNAL_DESIGNATIONS.includes(r.designation));
-  const fieldRows = rows.filter(r=> FIELD_DESIGNATIONS.includes(r.designation) || INTERNAL_DESIGNATIONS.includes(r.designation));
+  // Cadre membership is decided by whether the G.O. actually defines this designation
+  // (GO152_SECTION has it) — not by a small hardcoded exclusion list. That list only ever
+  // covered 4 known roles, so any other real-world designation (e.g. "Skilled Grade - 2"
+  // from bulk-imported staff data) was silently landing in the sanctioned cadre view instead
+  // of the separate field/support page. This is the actual source of truth everywhere now.
+  const cadreRows = rows.filter(r=> !!GO152_SECTION[r.designation]);
+  const fieldRows = rows.filter(r=> !GO152_SECTION[r.designation]);
 
   function rowHtml(r){
     const internalTag = INTERNAL_DESIGNATIONS.includes(r.designation) ? ' <span class="pill gray">Internal use</span>' : '';
@@ -2230,8 +2240,13 @@ function buildVacancyExportSections(){
     if(diff<0) return `${-diff} excess`;
     return 'Fully staffed';
   };
-  const cadreRows = rows.filter(r=> !FIELD_DESIGNATIONS.includes(r.designation) && !INTERNAL_DESIGNATIONS.includes(r.designation));
-  const fieldRows = rows.filter(r=> FIELD_DESIGNATIONS.includes(r.designation) || INTERNAL_DESIGNATIONS.includes(r.designation));
+  // Cadre membership is decided by whether the G.O. actually defines this designation
+  // (GO152_SECTION has it) — not by a small hardcoded exclusion list. That list only ever
+  // covered 4 known roles, so any other real-world designation (e.g. "Skilled Grade - 2"
+  // from bulk-imported staff data) was silently landing in the sanctioned cadre view instead
+  // of the separate field/support page. This is the actual source of truth everywhere now.
+  const cadreRows = rows.filter(r=> !!GO152_SECTION[r.designation]);
+  const fieldRows = rows.filter(r=> !GO152_SECTION[r.designation]);
 
   const sections = GO152_SECTIONS_IN_ORDER.map(sec=>({
     section: sec,
@@ -2247,10 +2262,11 @@ function buildVacancyExportSections(){
 
   const totalSanctioned = cadreRows.reduce((s,r)=>s+r.sanctioned,0);
   const totalFilled = cadreRows.reduce((s,r)=>s+r.filled,0);
+  const totalVacant = cadreRows.reduce((s,r)=>s+Math.max(0, r.sanctioned-r.filled),0);
   const fieldRowsOut = fieldRows.sort((a,b)=>a.designation.localeCompare(b.designation))
     .map(r=>({ designation:r.designation, sanctioned:r.sanctioned, filled:r.filled, status:toStatus(r) }));
 
-  return { sections, totalSanctioned, totalFilled, fieldRowsOut };
+  return { sections, totalSanctioned, totalFilled, totalVacant, fieldRowsOut };
 }
 function vacancyExportRowCount(d){ return d.sections.reduce((s,g)=>s+g.rows.length,0) + d.fieldRowsOut.length; }
 
@@ -2274,9 +2290,7 @@ document.getElementById('btnVacancyExportExcel').addEventListener('click', ()=>{
     group.rows.forEach(r=> aoa.push([r.serial, r.designation, r.cadre, r.sanctioned, r.filled, r.status]));
     aoa.push([]);
   });
-  aoa.push([]);
-  aoa.push(['GRAND TOTAL — ALL SECTIONS COMBINED']);
-  aoa.push(['','','Sanctioned', d.totalSanctioned, 'Filled', d.totalFilled]);
+  aoa.push(['', 'TOTAL — ALL SECTIONS COMBINED', '', d.totalSanctioned, d.totalFilled, `${d.totalVacant} vacant`]);
   const ws1 = XLSX.utils.aoa_to_sheet(aoa);
   ws1['!cols'] = [{wch:8},{wch:34},{wch:32},{wch:12},{wch:10},{wch:20}];
   XLSX.utils.book_append_sheet(wb, ws1, 'Sanctioned Cadre');
@@ -2312,7 +2326,6 @@ document.getElementById('btnVacancyExportPDF').addEventListener('click', ()=>{
   const doc = new jsPDF({ orientation:'portrait' });
   const logo = getLogoDataUri();
   const pageH = doc.internal.pageSize.getHeight();
-  const pageW = doc.internal.pageSize.getWidth();
 
   function drawHeader(subtitle){
     if(logo){ try{ doc.addImage(logo, 'PNG', 14, 10, 16, 16); }catch(e){} }
@@ -2345,21 +2358,14 @@ document.getElementById('btnVacancyExportPDF').addEventListener('click', ()=>{
     y = doc.lastAutoTable.finalY + 8;
   });
 
-  // GRAND TOTAL — deliberately set apart from the section tables above: a rule line, extra
-  // air, and its own bordered box, so it reads as a summary and never as "one more row"
-  // tacked onto whichever section happened to finish last.
-  if(y > pageH - 34){ doc.addPage(); y = drawHeader('Vacancy Report — Sanctioned Cadre (per G.O. 152) (contd.)'); }
-  y += 4;
-  doc.setDrawColor(200); doc.setLineWidth(0.3);
-  doc.line(14, y, pageW-14, y);
-  y += 8;
-  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(47,95,224);
-  doc.text('GRAND TOTAL — ALL SECTIONS COMBINED', 14, y);
+  // TOTAL — one final row in the same column layout as the section tables above, so it
+  // reads as the natural last row of the listing rather than a separate table widget.
+  if(y > pageH - 24){ doc.addPage(); y = drawHeader('Vacancy Report — Sanctioned Cadre (per G.O. 152) (contd.)'); }
   doc.autoTable({
-    startY: y+3,
-    body:[['Sanctioned', String(d.totalSanctioned), 'Filled', String(d.totalFilled)]],
-    styles:{fontSize:10, fontStyle:'bold', cellPadding:4, fillColor:[231,238,254], textColor:20, lineWidth:0.3, lineColor:[180,195,230]},
-    columnStyles:{0:{cellWidth:40},1:{cellWidth:30},2:{cellWidth:40},3:{cellWidth:30}},
+    startY: y,
+    body:[['', 'TOTAL — ALL SECTIONS COMBINED', '', String(d.totalSanctioned), String(d.totalFilled), `${d.totalVacant} vacant`]],
+    styles:{fontSize:7.5, fontStyle:'bold', cellPadding:2, fillColor:[231,238,254], textColor:20},
+    columnStyles:{0:{cellWidth:9}, 1:{cellWidth:38}, 2:{cellWidth:42}, 3:{cellWidth:14}, 4:{cellWidth:12}, 5:{cellWidth:'auto'}},
     margin:{left:14, right:14},
   });
 
