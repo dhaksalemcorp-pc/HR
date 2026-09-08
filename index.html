@@ -367,6 +367,12 @@
   .modal-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:18px;}
 
   .photo-row{display:flex; align-items:center; gap:14px; margin-bottom:14px;}
+  .crop-viewport{
+    width:220px; height:220px; border-radius:50%; overflow:hidden; position:relative;
+    background:var(--bg); border:1px solid var(--line); margin:0 auto; cursor:grab; touch-action:none;
+  }
+  .crop-viewport:active{cursor:grabbing;}
+  .crop-viewport img{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); user-select:none; -webkit-user-drag:none;}
   .photo-row .avatar, .photo-row .avatar-fallback{width:52px; height:52px; font-size:16px;}
 
   .import-box{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:20px; margin-bottom:18px; }
@@ -1711,11 +1717,14 @@ document.getElementById('btnOpenExport').addEventListener('click', ()=>{
 
 /* ---------------- Photo picker helper ---------------- */
 function photoFieldHtml(existingPhoto){
-  return `<div class="field"><label>Photo</label><div class="photo-row">
+  return `<div class="field"><label>Photo</label>
+    <div class="photo-row" id="photoRowNormal">
     ${existingPhoto ? `<img class="avatar" id="photoPreview" src="${existingPhoto}">` : `<div class="avatar-fallback" id="photoPreview">?</div>`}
     <input type="file" id="photoInput" accept="image/*">
     ${existingPhoto ? `<button type="button" class="btn ghost small" id="removePhotoBtn">Remove photo</button>` : ''}
-    </div></div>`;
+    </div>
+    <div id="photoCropUI" style="display:none;"></div>
+    </div>`;
 }
 function wirePhotoInput(){
   const input = document.getElementById('photoInput');
@@ -1724,7 +1733,7 @@ function wirePhotoInput(){
     const file = e.target.files[0]; if(!file) return;
     if(file.size > 2*1024*1024){ toast('Please choose an image under 2MB.'); return; }
     const reader = new FileReader();
-    reader.onload = ()=>{ const dataUrl = reader.result; document.getElementById('photoPreview').outerHTML = `<img class="avatar" id="photoPreview" src="${dataUrl}">`; input.dataset.value = dataUrl; };
+    reader.onload = ()=>{ openInlinePhotoCropper(reader.result); };
     reader.readAsDataURL(file);
   });
   const removeBtn = document.getElementById('removePhotoBtn');
@@ -1735,6 +1744,90 @@ function wirePhotoInput(){
       removeBtn.remove();
     });
   }
+}
+// Inline crop-and-position tool. Doesn't use openModal() — this app has exactly one shared
+// modal overlay, and Add/Edit Employee is a modal itself, so opening a second "modal" would
+// wipe out every other field the person has already filled in. Instead this swaps out just
+// the photo-row content in place, inside the SAME modal, so nothing else is disturbed.
+function openInlinePhotoCropper(rawDataUrl){
+  document.getElementById('photoRowNormal').style.display = 'none';
+  const cropUI = document.getElementById('photoCropUI');
+  cropUI.style.display = 'block';
+  cropUI.innerHTML = `
+    <div class="hint" style="margin-bottom:10px;">Drag to reposition, use the slider to zoom, so the face sits centered in the circle.</div>
+    <div class="crop-viewport" id="cropViewport"><img id="cropImg" src="${rawDataUrl}" draggable="false"></div>
+    <input type="range" id="cropZoom" min="100" max="300" value="100" style="width:100%; margin-top:14px;">
+    <div style="display:flex; gap:8px; margin-top:12px; justify-content:center;">
+      <button type="button" class="btn ghost small" id="cropCancel">Cancel</button>
+      <button type="button" class="btn small" id="cropConfirm">Use photo</button>
+    </div>`;
+
+  const img = document.getElementById('cropImg');
+  const viewport = document.getElementById('cropViewport');
+  const VP = 220; // viewport size, px — matches .crop-viewport's CSS width/height
+  let natW=0, natH=0, baseScale=1, zoom=1, panX=0, panY=0;
+  let dragging=false, startX=0, startY=0, startPanX=0, startPanY=0;
+
+  function applyTransform(){
+    const effScale = baseScale*zoom;
+    img.style.width = (natW*effScale)+'px';
+    img.style.height = (natH*effScale)+'px';
+    img.style.marginLeft = panX+'px';
+    img.style.marginTop = panY+'px';
+  }
+  function clampPan(){
+    const effScale = baseScale*zoom;
+    const W = natW*effScale, H = natH*effScale;
+    const maxX = Math.max(0,(W-VP)/2), maxY = Math.max(0,(H-VP)/2);
+    panX = Math.max(-maxX, Math.min(maxX, panX));
+    panY = Math.max(-maxY, Math.min(maxY, panY));
+  }
+  function setupFromImage(){
+    natW = img.naturalWidth; natH = img.naturalHeight;
+    baseScale = Math.max(VP/natW, VP/natH); // "cover" the circular viewport at zoom=1
+    panX=0; panY=0; zoom=1;
+    applyTransform();
+  }
+  if(img.complete && img.naturalWidth) setupFromImage(); else img.addEventListener('load', setupFromImage);
+
+  viewport.addEventListener('pointerdown', (e)=>{
+    dragging=true; startX=e.clientX; startY=e.clientY; startPanX=panX; startPanY=panY;
+    try{ viewport.setPointerCapture(e.pointerId); }catch(err){ /* not critical to the drag working */ }
+  });
+  viewport.addEventListener('pointermove', (e)=>{
+    if(!dragging) return;
+    panX = startPanX + (e.clientX-startX); panY = startPanY + (e.clientY-startY);
+    clampPan(); applyTransform();
+  });
+  viewport.addEventListener('pointerup', ()=>{ dragging=false; });
+  viewport.addEventListener('pointerleave', ()=>{ dragging=false; });
+  document.getElementById('cropZoom').addEventListener('input', (e)=>{
+    zoom = Number(e.target.value)/100; clampPan(); applyTransform();
+  });
+
+  function closeCropper(){
+    cropUI.style.display='none'; cropUI.innerHTML='';
+    document.getElementById('photoRowNormal').style.display='flex';
+  }
+  document.getElementById('cropCancel').addEventListener('click', ()=>{
+    closeCropper();
+    document.getElementById('photoInput').value=''; // clear the chosen file, nothing was applied
+  });
+  document.getElementById('cropConfirm').addEventListener('click', ()=>{
+    const OUT = 320;
+    const canvas = document.createElement('canvas'); canvas.width=OUT; canvas.height=OUT;
+    const ctx = canvas.getContext('2d');
+    const effScale = baseScale*zoom;
+    const W = natW*effScale, H = natH*effScale;
+    const imgLeft = (VP-W)/2 + panX, imgTop = (VP-H)/2 + panY; // image's top-left within the viewport
+    const sx = -imgLeft/effScale, sy = -imgTop/effScale, sSize = VP/effScale;
+    ctx.drawImage(img, sx, sy, sSize, sSize, 0, 0, OUT, OUT);
+    const finalDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    document.getElementById('photoInput').dataset.value = finalDataUrl;
+    const preview = document.getElementById('photoPreview');
+    if(preview) preview.outerHTML = `<img class="avatar" id="photoPreview" src="${finalDataUrl}">`;
+    closeCropper();
+  });
 }
 // Three distinct outcomes, not two: undefined = field untouched (keep whatever photo already
 // existed), null = user explicitly clicked "Remove photo", a data: URL = a newly chosen photo.
