@@ -2274,7 +2274,9 @@ document.getElementById('btnVacancyExportExcel').addEventListener('click', ()=>{
     group.rows.forEach(r=> aoa.push([r.serial, r.designation, r.cadre, r.sanctioned, r.filled, r.status]));
     aoa.push([]);
   });
-  aoa.push(['TOTAL (Sanctioned Cadre)','','', d.totalSanctioned, d.totalFilled, '']);
+  aoa.push([]);
+  aoa.push(['GRAND TOTAL — ALL SECTIONS COMBINED']);
+  aoa.push(['','','Sanctioned', d.totalSanctioned, 'Filled', d.totalFilled]);
   const ws1 = XLSX.utils.aoa_to_sheet(aoa);
   ws1['!cols'] = [{wch:8},{wch:34},{wch:32},{wch:12},{wch:10},{wch:20}];
   XLSX.utils.book_append_sheet(wb, ws1, 'Sanctioned Cadre');
@@ -2304,55 +2306,73 @@ document.getElementById('btnVacancyExportPDF').addEventListener('click', ()=>{
   const { jsPDF } = window.jspdf;
   const d = buildVacancyExportSections();
   if(!vacancyExportRowCount(d)){ toast('No rows to export for the current scope.'); return; }
-  const doc = new jsPDF({ orientation:'landscape' });
+  // Portrait, not landscape — a taller page fits far more of the 35-row sanctioned cadre
+  // list before needing to paginate, which is what actually makes "one page" achievable;
+  // landscape trades that away for width this report doesn't need (only 6 narrow columns).
+  const doc = new jsPDF({ orientation:'portrait' });
   const logo = getLogoDataUri();
   const pageH = doc.internal.pageSize.getHeight();
+  const pageW = doc.internal.pageSize.getWidth();
 
   function drawHeader(subtitle){
     if(logo){ try{ doc.addImage(logo, 'PNG', 14, 10, 16, 16); }catch(e){} }
     doc.setFont('helvetica','normal'); doc.setTextColor(20);
-    doc.setFontSize(14); doc.text('Salem City Municipal Corporation', logo?36:14, 16);
-    doc.setFontSize(11); doc.text(subtitle, logo?36:14, 22);
-    doc.setFontSize(9); doc.setTextColor(100);
-    doc.text(`Scope: ${vacancyScope}  ·  Generated: ${new Date().toLocaleString('en-IN')}`, 14, 32);
-    return 38;
+    doc.setFontSize(13); doc.text('Salem City Municipal Corporation', logo?36:14, 16);
+    doc.setFontSize(10.5); doc.text(subtitle, logo?36:14, 22);
+    doc.setFontSize(8.5); doc.setTextColor(100);
+    doc.text(`Scope: ${vacancyScope}  ·  Generated: ${new Date().toLocaleString('en-IN')}`, 14, 31);
+    return 37;
   }
 
-  // Page(s) 1..N: Sanctioned Cadre, one block per G.O. 152 section, in serial order
+  // Page(s) 1..N: Sanctioned Cadre only, one block per G.O. 152 section, in serial order.
+  // Field/support staff never appears anywhere on these pages.
   let y = drawHeader('Vacancy Report — Sanctioned Cadre (per G.O. 152)');
   d.sections.forEach(group=>{
-    if(y > pageH - 40){ doc.addPage(); y = drawHeader('Vacancy Report — Sanctioned Cadre (per G.O. 152) (contd.)'); }
-    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(47,95,224);
+    if(y > pageH - 45){ doc.addPage(); y = drawHeader('Vacancy Report — Sanctioned Cadre (per G.O. 152) (contd.)'); }
+    doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(47,95,224);
     doc.text(group.section, 14, y);
     doc.setFont('helvetica','normal'); doc.setTextColor(20);
     doc.autoTable({
       startY: y+3,
-      head:[['Sl.No','Designation','Cadre (per G.O. 152)','Sanctioned','Filled','Status']],
+      head:[['Sl.No','Designation','Cadre (per G.O. 152)','Sanct.','Fill.','Status']],
       body: group.rows.map(r=>[r.serial, r.designation, r.cadre, r.sanctioned, r.filled, r.status]),
-      styles:{fontSize:8, cellPadding:2},
-      headStyles:{fillColor:[47,95,224], textColor:255},
+      styles:{fontSize:7, cellPadding:1.6, overflow:'linebreak'},
+      columnStyles:{0:{cellWidth:9}, 1:{cellWidth:38}, 2:{cellWidth:42}, 3:{cellWidth:14}, 4:{cellWidth:12}, 5:{cellWidth:'auto'}},
+      headStyles:{fillColor:[47,95,224], textColor:255, fontSize:7},
       alternateRowStyles:{fillColor:[247,249,252]},
       margin:{left:14, right:14},
     });
-    y = doc.lastAutoTable.finalY + 10;
+    y = doc.lastAutoTable.finalY + 8;
   });
-  if(y > pageH - 30){ doc.addPage(); y = drawHeader('Vacancy Report — Sanctioned Cadre (per G.O. 152) (contd.)'); }
+
+  // GRAND TOTAL — deliberately set apart from the section tables above: a rule line, extra
+  // air, and its own bordered box, so it reads as a summary and never as "one more row"
+  // tacked onto whichever section happened to finish last.
+  if(y > pageH - 34){ doc.addPage(); y = drawHeader('Vacancy Report — Sanctioned Cadre (per G.O. 152) (contd.)'); }
+  y += 4;
+  doc.setDrawColor(200); doc.setLineWidth(0.3);
+  doc.line(14, y, pageW-14, y);
+  y += 8;
+  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(47,95,224);
+  doc.text('GRAND TOTAL — ALL SECTIONS COMBINED', 14, y);
   doc.autoTable({
-    startY: y,
-    body:[['TOTAL (Sanctioned Cadre)', '', '', String(d.totalSanctioned), String(d.totalFilled), '']],
-    styles:{fontSize:9, fontStyle:'bold', cellPadding:3, fillColor:[231,238,254], textColor:20},
+    startY: y+3,
+    body:[['Sanctioned', String(d.totalSanctioned), 'Filled', String(d.totalFilled)]],
+    styles:{fontSize:10, fontStyle:'bold', cellPadding:4, fillColor:[231,238,254], textColor:20, lineWidth:0.3, lineColor:[180,195,230]},
+    columnStyles:{0:{cellWidth:40},1:{cellWidth:30},2:{cellWidth:40},3:{cellWidth:30}},
     margin:{left:14, right:14},
   });
 
-  // Separate page: Field / Support Staff (not covered by G.O. 152), never mixed with the cadre table
+  // Separate page: Field / Support Staff (not covered by G.O. 152) — a real new page,
+  // so it can never visually bleed into the sanctioned cadre report above.
   if(d.fieldRowsOut.length){
     doc.addPage();
     drawHeader('Field / Support Staff (not covered by G.O. 152)');
     doc.autoTable({
-      startY:38,
+      startY:37,
       head:[['Designation','Sanctioned','Filled','Status']],
       body: d.fieldRowsOut.map(r=>[r.designation, r.sanctioned, r.filled, r.status]),
-      styles:{fontSize:8, cellPadding:2.2},
+      styles:{fontSize:8.5, cellPadding:2.4},
       headStyles:{fillColor:[124,92,252], textColor:255},
       alternateRowStyles:{fillColor:[247,249,252]},
       margin:{left:14, right:14},
