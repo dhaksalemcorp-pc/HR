@@ -510,6 +510,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 4v16"/></svg>
         <span>Vacancy</span>
       </button>
+      <button class="side-btn" data-panel="retirement">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+        <span>Retirement</span>
+      </button>
       <div class="nav-group-label">Manage</div>
       <button class="side-btn" data-panel="charges">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 14.4 7.2 16.9l.9-5.4L4.2 7.7l5.4-.8z"/></svg>
@@ -627,7 +631,11 @@
       <section class="panel" id="panel-vacancy">
         <div class="row-between">
           <div class="hint" style="font-size:12.5px; color:var(--ink-faint);">Compares sanctioned strength against who's actually posted. Pick a scope, then compare cadre posts against field/support staff.</div>
-          <button class="btn" id="btnAddSanctioned" style="display:none;">+ Set sanctioned strength</button>
+          <div style="display:flex; gap:8px;">
+            <button class="btn ghost" id="btnVacancyExportExcel">⬇ Export Excel</button>
+            <button class="btn ghost" id="btnVacancyExportPDF">⬇ Export PDF</button>
+            <button class="btn" id="btnAddSanctioned" style="display:none;">+ Set sanctioned strength</button>
+          </div>
         </div>
         <div class="scope-chips" id="vacancyScopeChips"></div>
         <div class="stat-grid" id="vacancyStats"></div>
@@ -647,6 +655,28 @@
             <tbody id="vacancyFieldBody"></tbody>
           </table></div>
         </div>
+      </section>
+
+      <!-- RETIREMENT -->
+      <section class="panel" id="panel-retirement">
+        <div class="row-between">
+          <div class="hint" style="font-size:12.5px; color:var(--ink-faint);">Who's due to retire — retirement date is the last day of the month in which they turn 60. Each horizon includes everyone in the ones before it.</div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn ghost" id="btnRetirementExportExcel">⬇ Export Excel</button>
+            <button class="btn ghost" id="btnRetirementExportPDF">⬇ Export PDF</button>
+          </div>
+        </div>
+        <div class="scope-chips" id="retirementScopeChips">
+          <button class="scope-chip active" data-horizon="1">Within 1 Month</button>
+          <button class="scope-chip" data-horizon="3">Within 3 Months</button>
+          <button class="scope-chip" data-horizon="12">Within 1 Year</button>
+        </div>
+        <div class="stat-grid" id="retirementStats"></div>
+        <div class="hint" id="retirementNoDobNote" style="margin-bottom:12px;"></div>
+        <div class="card"><table class="responsive-mobile">
+          <thead><tr><th></th><th>Emp ID</th><th>Name</th><th>Designation</th><th>Zone</th><th>Date of Birth</th><th>Retirement Date</th></tr></thead>
+          <tbody id="retirementBody"></tbody>
+        </table></div>
       </section>
 
       <!-- CHARGES -->
@@ -740,6 +770,15 @@
               <button class="btn small" data-add-list="category">+ Add</button>
             </div>
           </div>
+          <div class="dash-card">
+            <h3>Caste Categories</h3>
+            <div class="hint">Used on the employee data-entry form. Adjust wording to match your local terminology.</div>
+            <div id="listCaste"></div>
+            <div class="row-between" style="margin-top:12px; gap:8px;">
+              <input type="text" id="newCasteInput" placeholder="Add caste category…" style="flex:1;">
+              <button class="btn small" data-add-list="caste">+ Add</button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -768,6 +807,10 @@
   <div class="more-sheet-overlay" id="moreSheetOverlay">
     <div class="more-sheet">
       <div class="more-sheet-handle"></div>
+      <button class="more-sheet-item" data-panel="retirement">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+        Retirement
+      </button>
       <button class="more-sheet-item" data-panel="charges">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 14.4 7.2 16.9l.9-5.4L4.2 7.7l5.4-.8z"/></svg>
         Additional Charge / Work Allocation
@@ -836,6 +879,8 @@
 const ZONES = ["Main Office","Zone-1 Suramangalam","Zone-2 Hasthampatti","Zone-3 Ammapet","Zone-4 Kondalampatti"];
 let SECTIONS = ["Commissioner's Office","Mayor Office","Deputy Mayor Office","General Administration Section","Public Health Section","Engineering Section","Town Planning Section","Accounts Section"];
 let CATEGORIES = ["Regular","Deputation","Temporary"];
+let CASTE_CATEGORIES = ["General/OC","BC","BCM","MBC/DNC","SC","SC(A)","ST","Other"];
+const RECRUITMENT_TYPES = ["Direct Recruit","Promotion"];
 let DESIGNATIONS = ["Commissioner","Deputy Commissioner","Assistant Commissioner (Zone)","Assistant Commissioner (Revenue)","Assistant Commissioner (Personnel)","Assistant Commissioner (Accounts)","Accounts Officer","Council Secretary","Public Relation Officer","Administrative Officer","Revenue Officer","Superintendent","Assistant Revenue Officer","Assistant","Personal Clerk","Junior Assistant","Driver","City Health Officer","Assistant City Health Officer","Veterinary Medical Officer","Sanitary Officer","Sanitary Inspector","Entomologist","City Engineer","Deputy City Engineer","Zonal Engineer","Assistant Executive Engineer","Assistant Engineer / Junior Engineer","Draughtsman","Technical Assistant / Public Works Overseer","Electrical Superintendent","Junior Engineer (Automobile)","City Planner","Assistant City Planner","Planning Inspector","Sanitary Worker","Office Assistant","Unskilled Worker","DBC Worker"];
 // Field/support roles outside G.O. 152's sanctioned cadre. DBC Worker is flagged separately as internal-use tracking.
 const FIELD_DESIGNATIONS = ["Sanitary Worker","Office Assistant","Unskilled Worker"];
@@ -938,44 +983,44 @@ let users = [
 // Sanctioned strength per G.O. (Ms) No. 152, SCMC, dated 20.10.2022 — HQ + 4-zone total split evenly per zone.
 // serial/section preserve the G.O.'s own row order and section groupings (rows 1-6, 7-17, 18-23, 24-32, 33-35).
 const GO152_STRENGTH = [
-  {serial:1, section:"Commissioner's Office", designation:"Commissioner", ho:1, perZone:0},
-  {serial:2, section:"Commissioner's Office", designation:"Deputy Commissioner", ho:2, perZone:0},
-  {serial:3, section:"Commissioner's Office", designation:"Assistant Commissioner (Zone)", ho:0, perZone:1},
-  {serial:4, section:"Commissioner's Office", designation:"Assistant Commissioner (Revenue)", ho:1, perZone:0},
-  {serial:5, section:"Commissioner's Office", designation:"Assistant Commissioner (Personnel)", ho:1, perZone:0},
-  {serial:6, section:"Commissioner's Office", designation:"Assistant Commissioner (Accounts)", ho:1, perZone:0},
-  {serial:7, section:"General Administration Section", designation:"Accounts Officer", ho:1, perZone:0},
-  {serial:8, section:"General Administration Section", designation:"Council Secretary", ho:1, perZone:0},
-  {serial:9, section:"General Administration Section", designation:"Public Relation Officer", ho:1, perZone:0},
-  {serial:10, section:"General Administration Section", designation:"Administrative Officer", ho:0, perZone:1},
-  {serial:11, section:"General Administration Section", designation:"Revenue Officer", ho:1, perZone:0},
-  {serial:12, section:"General Administration Section", designation:"Superintendent", ho:6, perZone:2},
-  {serial:13, section:"General Administration Section", designation:"Assistant Revenue Officer", ho:0, perZone:1},
-  {serial:14, section:"General Administration Section", designation:"Assistant", ho:8, perZone:3},
-  {serial:15, section:"General Administration Section", designation:"Personal Clerk", ho:3, perZone:0},
-  {serial:16, section:"General Administration Section", designation:"Junior Assistant", ho:16, perZone:6},
-  {serial:17, section:"General Administration Section", designation:"Driver", ho:3, perZone:0},
-  {serial:18, section:"Public Health Section", designation:"City Health Officer", ho:1, perZone:0},
-  {serial:19, section:"Public Health Section", designation:"Assistant City Health Officer", ho:1, perZone:0},
-  {serial:20, section:"Public Health Section", designation:"Veterinary Medical Officer", ho:1, perZone:0},
-  {serial:21, section:"Public Health Section", designation:"Sanitary Officer", ho:0, perZone:1},
-  {serial:22, section:"Public Health Section", designation:"Sanitary Inspector", ho:0, perZone:5},
-  {serial:23, section:"Public Health Section", designation:"Entomologist", ho:1, perZone:0},
-  {serial:24, section:"Engineering Section", designation:"City Engineer", ho:1, perZone:0},
-  {serial:25, section:"Engineering Section", designation:"Deputy City Engineer", ho:3, perZone:0},
-  {serial:26, section:"Engineering Section", designation:"Zonal Engineer", ho:0, perZone:1},
-  {serial:27, section:"Engineering Section", designation:"Assistant Executive Engineer", ho:0, perZone:1},
-  {serial:28, section:"Engineering Section", designation:"Assistant Engineer / Junior Engineer", ho:0, perZone:5},
-  {serial:29, section:"Engineering Section", designation:"Draughtsman", ho:3, perZone:1},
-  {serial:30, section:"Engineering Section", designation:"Technical Assistant / Public Works Overseer", ho:0, perZone:10},
-  {serial:31, section:"Engineering Section", designation:"Electrical Superintendent", ho:1, perZone:0},
-  {serial:32, section:"Engineering Section", designation:"Junior Engineer (Automobile)", ho:1, perZone:0},
-  {serial:33, section:"Town Planning Section", designation:"City Planner", ho:1, perZone:0},
-  {serial:34, section:"Town Planning Section", designation:"Assistant City Planner", ho:0, perZone:2},
-  {serial:35, section:"Town Planning Section", designation:"Planning Inspector", ho:0, perZone:2},
+  {serial:1, section:"Commissioner's Office", designation:"Commissioner", cadre:"Additional Director Cadre", ho:1, perZone:0},
+  {serial:2, section:"Commissioner's Office", designation:"Deputy Commissioner", cadre:"Joint Director Cadre", ho:2, perZone:0},
+  {serial:3, section:"Commissioner's Office", designation:"Assistant Commissioner (Zone)", cadre:"Special Grade Commissioner Cadre", ho:0, perZone:1},
+  {serial:4, section:"Commissioner's Office", designation:"Assistant Commissioner (Revenue)", cadre:"Selection Grade Commissioner Cadre", ho:1, perZone:0},
+  {serial:5, section:"Commissioner's Office", designation:"Assistant Commissioner (Personnel)", cadre:"Selection Grade Commissioner Cadre", ho:1, perZone:0},
+  {serial:6, section:"Commissioner's Office", designation:"Assistant Commissioner (Accounts)", cadre:"Selection Grade Commissioner Cadre", ho:1, perZone:0},
+  {serial:7, section:"General Administration Section", designation:"Accounts Officer", cadre:"", ho:1, perZone:0},
+  {serial:8, section:"General Administration Section", designation:"Council Secretary", cadre:"", ho:1, perZone:0},
+  {serial:9, section:"General Administration Section", designation:"Public Relation Officer", cadre:"", ho:1, perZone:0},
+  {serial:10, section:"General Administration Section", designation:"Administrative Officer", cadre:"", ho:0, perZone:1},
+  {serial:11, section:"General Administration Section", designation:"Revenue Officer", cadre:"", ho:1, perZone:0},
+  {serial:12, section:"General Administration Section", designation:"Superintendent", cadre:"", ho:6, perZone:2},
+  {serial:13, section:"General Administration Section", designation:"Assistant Revenue Officer", cadre:"", ho:0, perZone:1},
+  {serial:14, section:"General Administration Section", designation:"Assistant", cadre:"", ho:8, perZone:3},
+  {serial:15, section:"General Administration Section", designation:"Personal Clerk", cadre:"", ho:3, perZone:0},
+  {serial:16, section:"General Administration Section", designation:"Junior Assistant", cadre:"", ho:16, perZone:6},
+  {serial:17, section:"General Administration Section", designation:"Driver", cadre:"", ho:3, perZone:0},
+  {serial:18, section:"Public Health Section", designation:"City Health Officer", cadre:"Deputy Director Grade - 2 Cadre", ho:1, perZone:0},
+  {serial:19, section:"Public Health Section", designation:"Assistant City Health Officer", cadre:"", ho:1, perZone:0},
+  {serial:20, section:"Public Health Section", designation:"Veterinary Medical Officer", cadre:"", ho:1, perZone:0},
+  {serial:21, section:"Public Health Section", designation:"Sanitary Officer", cadre:"", ho:0, perZone:1},
+  {serial:22, section:"Public Health Section", designation:"Sanitary Inspector", cadre:"", ho:0, perZone:5},
+  {serial:23, section:"Public Health Section", designation:"Entomologist", cadre:"", ho:1, perZone:0},
+  {serial:24, section:"Engineering Section", designation:"City Engineer", cadre:"Superintending Engineer Cadre", ho:1, perZone:0},
+  {serial:25, section:"Engineering Section", designation:"Deputy City Engineer", cadre:"Executive Engineer Cadre", ho:3, perZone:0},
+  {serial:26, section:"Engineering Section", designation:"Zonal Engineer", cadre:"Executive Engineer Cadre", ho:0, perZone:1},
+  {serial:27, section:"Engineering Section", designation:"Assistant Executive Engineer", cadre:"", ho:0, perZone:1},
+  {serial:28, section:"Engineering Section", designation:"Assistant Engineer / Junior Engineer", cadre:"", ho:0, perZone:5},
+  {serial:29, section:"Engineering Section", designation:"Draughtsman", cadre:"", ho:3, perZone:1},
+  {serial:30, section:"Engineering Section", designation:"Technical Assistant / Public Works Overseer", cadre:"", ho:0, perZone:10},
+  {serial:31, section:"Engineering Section", designation:"Electrical Superintendent", cadre:"in the cadre of Technical Assistant", ho:1, perZone:0},
+  {serial:32, section:"Engineering Section", designation:"Junior Engineer (Automobile)", cadre:"", ho:1, perZone:0},
+  {serial:33, section:"Town Planning Section", designation:"City Planner", cadre:"Executive Engineer Cadre", ho:1, perZone:0},
+  {serial:34, section:"Town Planning Section", designation:"Assistant City Planner", cadre:"Assistant Executive Engineer Cadre", ho:0, perZone:2},
+  {serial:35, section:"Town Planning Section", designation:"Planning Inspector", cadre:"Assistant Engineer Cadre", ho:0, perZone:2},
 ];
-const GO152_ORDER = {}; const GO152_SECTION = {};
-GO152_STRENGTH.forEach(r=>{ GO152_ORDER[r.designation]=r.serial; GO152_SECTION[r.designation]=r.section; });
+const GO152_ORDER = {}; const GO152_SECTION = {}; const GO152_CADRE = {};
+GO152_STRENGTH.forEach(r=>{ GO152_ORDER[r.designation]=r.serial; GO152_SECTION[r.designation]=r.section; GO152_CADRE[r.designation]=r.cadre; });
 const GO152_SECTIONS_IN_ORDER = ["Commissioner's Office","General Administration Section","Public Health Section","Engineering Section","Town Planning Section"];
 let sanctionedPosts = [];
 GO152_STRENGTH.forEach(row=>{
@@ -1004,6 +1049,30 @@ function fmtDate(d){
   const dt = new Date(iso);
   if(isNaN(dt.getTime())) return "—";
   return dt.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+}
+// Retirement date = last day of the month in which the employee turns 60 — this is the
+// standard government superannuation rule (not the exact 60th birthday date itself). e.g.
+// DOB 15-05-1966 -> turns 60 on 15-05-2026 -> actual retirement (DOR) is 31-05-2026.
+// Returns a plain yyyy-MM-dd string (or null if DOB is missing/invalid) so it composes with
+// fmtDate() and with date-arithmetic elsewhere (the retirement-tracking view) without re-parsing.
+function calcRetirementDate(dob){
+  if(!dob) return null;
+  const iso = (typeof dob==='string' && dob.includes('T')) ? dob : dob+"T00:00:00";
+  const dt = new Date(iso);
+  if(isNaN(dt.getTime())) return null;
+  const turns60 = new Date(dt);
+  turns60.setFullYear(turns60.getFullYear()+60);
+  const lastDayOfMonth = new Date(turns60.getFullYear(), turns60.getMonth()+1, 0); // day 0 of next month = last day of this month
+  const y=lastDayOfMonth.getFullYear(), m=String(lastDayOfMonth.getMonth()+1).padStart(2,'0'), d=String(lastDayOfMonth.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+// Whole months remaining from today until a given yyyy-MM-dd date (negative if already past).
+function monthsUntil(dateStr){
+  if(!dateStr) return null;
+  const target = new Date(dateStr+"T00:00:00");
+  if(isNaN(target.getTime())) return null;
+  const now = new Date();
+  return (target.getFullYear()-now.getFullYear())*12 + (target.getMonth()-now.getMonth()) - (target.getDate()<now.getDate()?1:0);
 }
 function initials(name){ return (name||'?').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
 function zoneShort(z){ return z.replace(/^Zone-\d+\s*/,'').replace('Main Office','Main Office'); }
@@ -1075,7 +1144,7 @@ async function loadAllFromBackend(){
   const d = res.data;
   employees = d.employees.map(e=>({
     id:e.id, name:e.name, dob:e.dob||'', doj:e.doj||'', native:e.native||'', phone:e.phone||'', email:e.email||'',
-    category:e.category||'Regular', photo:e.photo||null,
+    category:e.category||'Regular', caste:e.caste||'', recruitmentType:e.recruitmentType||'', photo:e.photo||null,
     deputation: e.depType ? {type:e.depType, org:e.depOrg||''} : null
   }));
   postings = d.postings.map(p=>({ id:p.id, empId:p.empId, designation:p.designation, zone:p.zone, section:p.section, start:p.start, end:p.end||null }));
@@ -1087,6 +1156,8 @@ async function loadAllFromBackend(){
     DESIGNATIONS = d.lists.filter(l=>l.type==='designation').map(l=>l.value);
     SECTIONS = d.lists.filter(l=>l.type==='section').map(l=>l.value);
     CATEGORIES = d.lists.filter(l=>l.type==='category').map(l=>l.value);
+    const casteFromBackend = d.lists.filter(l=>l.type==='caste').map(l=>l.value);
+    if(casteFromBackend.length) CASTE_CATEGORIES = casteFromBackend;
   }
   return true;
 }
@@ -1142,7 +1213,7 @@ document.getElementById('logoutBtn').addEventListener('click', ()=>{
 document.getElementById('refreshBtn').addEventListener('click', ()=>{ renderAll(); toast('Refreshed.'); });
 
 /* ---------------- Navigation (shared by sidebar, on desktop, and bottom tab bar, on mobile/tablet) ---------------- */
-const titles = {dashboard:["Dashboard","Overview & Analytics"], directory:["Directory","Employee records"], vacancy:["Vacancy","Sanctioned vs filled posts"], charges:["Additional Charge / Work Allocation","In-charge appointments and day-to-day seat allocations"], schemes:["Work/Scheme Assigned","Who owns what"], import:["Bulk Import","Add many employees at once"], access:["User Access","Manage HR accounts"], settings:["Settings","Manage dropdown lists"]};
+const titles = {dashboard:["Dashboard","Overview & Analytics"], directory:["Directory","Employee records"], vacancy:["Vacancy","Sanctioned vs filled posts"], retirement:["Retirement","Who's due to retire, and when"], charges:["Additional Charge / Work Allocation","In-charge appointments and day-to-day seat allocations"], schemes:["Work/Scheme Assigned","Who owns what"], import:["Bulk Import","Add many employees at once"], access:["User Access","Manage HR accounts"], settings:["Settings","Manage dropdown lists"]};
 function activatePanel(panelName){
   document.querySelectorAll('.side-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.bottom-nav-btn').forEach(b=>b.classList.remove('active'));
@@ -1158,6 +1229,7 @@ function activatePanel(panelName){
   if(panelName==='access') renderUsers();
   if(panelName==='settings') renderSettingsLists();
   if(panelName==='vacancy') renderVacancy();
+  if(panelName==='retirement') renderRetirement();
   closeMoreSheet();
 }
 document.querySelectorAll('.side-btn').forEach(btn=>{
@@ -1578,8 +1650,11 @@ function openDrawer(empId){
   document.getElementById('drawerId').textContent = e.id;
   document.getElementById('drawerFields').innerHTML = `
     <div><label>Category</label><span>${e.category}</span></div>
+    <div><label>Caste</label><span>${e.caste||'—'}</span></div>
+    <div><label>Recruitment</label><span>${e.recruitmentType||'—'}</span></div>
     <div><label>Date of joining</label><span>${fmtDate(e.doj)}</span></div>
     <div><label>Date of birth</label><span>${fmtDate(e.dob)}</span></div>
+    <div><label>Retirement date <span style="font-weight:400; text-transform:none;">(auto, last day of the month turning 60)</span></label><span>${e.dob ? fmtDate(calcRetirementDate(e.dob)) : '—'}</span></div>
     <div><label>Native location</label><span>${e.native||'—'}</span></div>
     <div><label>Phone</label><span>${e.phone||'—'}</span></div>
     <div><label>Email</label><span>${e.email||'—'}</span></div>
@@ -1640,6 +1715,9 @@ document.getElementById('btnAddEmployee').addEventListener('click', ()=>{
     <div class="field"><label>Emp ID</label><input type="text" id="f_empid" value="${suggestNextEmpId()}"></div>
     ${photoFieldHtml(null)}
     <div class="field"><label>Full name</label><input type="text" id="f_name"></div>
+    <div class="field"><label>Date of birth</label><input type="date" id="f_dob"></div>
+    <div class="field"><label>Caste</label><select id="f_caste">${CASTE_CATEGORIES.map(c=>`<option>${c}</option>`).join('')}</select></div>
+    <div class="field"><label>Recruitment</label><select id="f_recruit">${RECRUITMENT_TYPES.map(r=>`<option>${r}</option>`).join('')}</select></div>
     <div class="field"><label>Category</label><select id="f_cat">${CATEGORIES.map(c=>`<option>${c}</option>`).join('')}</select></div>
     <div class="field"><label>Designation</label><select id="f_desig">${DESIGNATIONS.map(d=>`<option>${d}</option>`).join('')}</select></div>
     <div class="field"><label>Zone</label><select id="f_zone" ${lockZone?'disabled':''}>${vz.map(z=>`<option>${z}</option>`).join('')}</select></div>
@@ -1663,10 +1741,13 @@ document.getElementById('btnAddEmployee').addEventListener('click', ()=>{
     const dep = readDeputationFromForm();
     const phone = document.getElementById('f_phone').value;
     const category = document.getElementById('f_cat').value;
+    const dob = document.getElementById('f_dob').value;
+    const caste = document.getElementById('f_caste').value;
+    const recruitmentType = document.getElementById('f_recruit').value;
     const photo = currentPhotoValue();
     let id;
     if(backendConfigured()){
-      const res = await apiCall('addEmployee', {id:enteredId, name,dob:"",doj,native:"",phone,email:"",category,photo:photo||'',depType:dep?dep.type:'',depOrg:dep?dep.org:''});
+      const res = await apiCall('addEmployee', {id:enteredId, name,dob,doj,native:"",phone,email:"",category,caste,recruitmentType,photo:photo||'',depType:dep?dep.type:'',depOrg:dep?dep.org:''});
       if(!res.ok){ toast(res.error || 'Could not save to server — try again.'); return; }
       id = res.data.id;
     } else {
@@ -1674,7 +1755,7 @@ document.getElementById('btnAddEmployee').addEventListener('click', ()=>{
       const m = /^SCM-(\d+)$/.exec(id);
       if(m) seq.emp = Math.max(seq.emp, parseInt(m[1],10));
     }
-    employees.push({id,name,dob:"",doj,native:"",phone,email:"",category,photo,deputation:dep});
+    employees.push({id,name,dob,doj,native:"",phone,email:"",category,caste,recruitmentType,photo,deputation:dep});
     const designation = document.getElementById('f_desig').value||'Unassigned';
     const zone = lockZone?currentUser.zone:document.getElementById('f_zone').value;
     const section = document.getElementById('f_section').value;
@@ -1699,7 +1780,10 @@ document.getElementById('btnEditEmployee').addEventListener('click', ()=>{
     ${photoFieldHtml(e.photo)}
     <div class="field"><label>Full name</label><input type="text" id="e_name" value="${e.name}"></div>
     <div class="field"><label>Category</label><select id="e_cat">${CATEGORIES.map(c=>`<option ${c===e.category?'selected':''}>${c}</option>`).join('')}</select></div>
+    <div class="field"><label>Caste</label><select id="e_caste">${CASTE_CATEGORIES.map(c=>`<option ${c===e.caste?'selected':''}>${c}</option>`).join('')}</select></div>
+    <div class="field"><label>Recruitment</label><select id="e_recruit">${RECRUITMENT_TYPES.map(r=>`<option ${r===e.recruitmentType?'selected':''}>${r}</option>`).join('')}</select></div>
     <div class="field"><label>Date of birth</label><input type="date" id="e_dob" value="${e.dob||''}"></div>
+    <div class="hint" id="e_retirement_preview" style="margin-top:-6px;"></div>
     <div class="field"><label>Native location</label><input type="text" id="e_native" value="${e.native||''}"></div>
     <div class="field"><label>Phone</label><input type="text" id="e_phone" value="${e.phone||''}"></div>
     <div class="field"><label>Email</label><input type="text" id="e_email" value="${e.email||''}"></div>
@@ -1708,6 +1792,12 @@ document.getElementById('btnEditEmployee').addEventListener('click', ()=>{
   `);
   wirePhotoInput();
   wireDeputationField();
+  const updateRetPreview = ()=>{
+    const ret = calcRetirementDate(document.getElementById('e_dob').value);
+    document.getElementById('e_retirement_preview').textContent = ret ? `Retirement date (last day of month turning 60): ${fmtDate(ret)}` : '';
+  };
+  document.getElementById('e_dob').addEventListener('input', updateRetPreview);
+  updateRetPreview();
   document.getElementById('saveEditEmployee').addEventListener('click', ()=>{
     const oldId = e.id;
     const newId = document.getElementById('e_empid').value.trim();
@@ -1716,6 +1806,7 @@ document.getElementById('btnEditEmployee').addEventListener('click', ()=>{
 
     e.name=document.getElementById('e_name').value.trim()||e.name;
     e.category=document.getElementById('e_cat').value; e.dob=document.getElementById('e_dob').value;
+    e.caste=document.getElementById('e_caste').value; e.recruitmentType=document.getElementById('e_recruit').value;
     e.native=document.getElementById('e_native').value; e.phone=document.getElementById('e_phone').value; e.email=document.getElementById('e_email').value;
     e.deputation = readDeputationFromForm();
     const newPhoto = currentPhotoValue(); if(newPhoto) e.photo = newPhoto;
@@ -1730,7 +1821,7 @@ document.getElementById('btnEditEmployee').addEventListener('click', ()=>{
     }
 
     if(backendConfigured()){
-      persist('updateEmployee', {id:oldId, fields:{id:newId, name:e.name, category:e.category, dob:e.dob, native:e.native, phone:e.phone, email:e.email, photo:e.photo||'', depType:e.deputation?e.deputation.type:'', depOrg:e.deputation?e.deputation.org:''}});
+      persist('updateEmployee', {id:oldId, fields:{id:newId, name:e.name, category:e.category, dob:e.dob, caste:e.caste, recruitmentType:e.recruitmentType, native:e.native, phone:e.phone, email:e.email, photo:e.photo||'', depType:e.deputation?e.deputation.type:'', depOrg:e.deputation?e.deputation.org:''}});
       if(idChanged) persist('renameEmpIdReferences', {oldId, newId});
     }
     closeModal(); openDrawer(e.id); renderDirectory(); toast(idChanged ? `Employee details updated and Emp ID changed to ${newId}.` : 'Employee details updated.');
@@ -2068,7 +2159,8 @@ function renderVacancy(){
     const internalTag = INTERNAL_DESIGNATIONS.includes(r.designation) ? ' <span class="pill gray">Internal use</span>' : '';
     const editBtn = (currentUser.role!=='zonehr' && scopeZone) ? `<button class="btn ghost small" data-edit-sanctioned="${scopeZone}||${r.designation}">Edit</button>` : '';
     const serialTag = GO152_ORDER[r.designation] ? `<span class="mono" style="color:var(--ink-faint); margin-right:6px;">${GO152_ORDER[r.designation]}.</span>` : '';
-    return `<tr><td data-label="Designation">${serialTag}${r.designation}${internalTag}</td><td data-label="Sanctioned">${r.sanctioned}</td><td data-label="Filled">${r.filled}</td><td data-label="Status">${statusPillFor(r.designation, r.sanctioned, r.filled)}</td><td data-label="">${editBtn}</td></tr>`;
+    const cadreTag = GO152_CADRE[r.designation] ? `<br><span style="font-size:10.5px; color:var(--ink-faint); font-weight:500;">(${GO152_CADRE[r.designation]})</span>` : '';
+    return `<tr><td data-label="Designation">${serialTag}${r.designation}${internalTag}${cadreTag}</td><td data-label="Sanctioned">${r.sanctioned}</td><td data-label="Filled">${r.filled}</td><td data-label="Status">${statusPillFor(r.designation, r.sanctioned, r.filled)}</td><td data-label="">${editBtn}</td></tr>`;
   }
   function renderCadreBodyGrouped(cadreList){
     let html = '';
@@ -2120,6 +2212,172 @@ function openSanctionedModal(zone, designation){
   });
 }
 document.getElementById('btnAddSanctioned').addEventListener('click', ()=> openSanctionedModal(null, null));
+
+/* ---------------- Vacancy export: Excel & PDF, with logo + generated date ---------------- */
+function getLogoDataUri(){
+  const img = document.querySelector('.login-seal-img');
+  return img ? img.src : null;
+}
+function buildVacancyExportRows(){
+  const scopeZone = vacancyScope==='Overall' ? null : vacancyScope;
+  const rows = getVacancyRows(scopeZone);
+  return rows.map(r=>{
+    const diff = r.sanctioned - r.filled;
+    let status;
+    if(r.sanctioned===0 && (FIELD_DESIGNATIONS.includes(r.designation) || INTERNAL_DESIGNATIONS.includes(r.designation))) status = 'Not covered by G.O. 152';
+    else if(diff>0) status = `${diff} vacant`;
+    else if(diff<0) status = `${-diff} excess`;
+    else status = 'Fully staffed';
+    return {
+      'Designation': r.designation,
+      'Cadre (per G.O. 152)': GO152_CADRE[r.designation] || '—',
+      'Sanctioned': r.sanctioned,
+      'Filled': r.filled,
+      'Status': status,
+    };
+  });
+}
+document.getElementById('btnVacancyExportExcel').addEventListener('click', ()=>{
+  if(typeof XLSX === 'undefined'){ toast('Excel library still loading — try again in a moment.'); return; }
+  const data = buildVacancyExportRows();
+  if(!data.length){ toast('No rows to export for the current scope.'); return; }
+  const wb = XLSX.utils.book_new();
+  const title = [
+    ['Salem City Municipal Corporation'],
+    ['Vacancy Report'],
+    [`Scope: ${vacancyScope}`],
+    [`Generated: ${new Date().toLocaleString('en-IN')}`],
+    [],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(title);
+  XLSX.utils.sheet_add_json(ws, data, {origin: 'A6', skipHeader:false});
+  ws['!cols'] = [{wch:34},{wch:32},{wch:12},{wch:10},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Vacancy');
+  XLSX.writeFile(wb, `SCMC_Vacancy_${vacancyScope.replace(/[^a-z0-9]+/gi,'_')}.xlsx`);
+  toast(`Exported ${data.length} rows to Excel.`);
+});
+document.getElementById('btnVacancyExportPDF').addEventListener('click', ()=>{
+  if(typeof window.jspdf === 'undefined'){ toast('PDF library still loading — try again in a moment.'); return; }
+  const { jsPDF } = window.jspdf;
+  const data = buildVacancyExportRows();
+  if(!data.length){ toast('No rows to export for the current scope.'); return; }
+  const doc = new jsPDF({ orientation:'landscape' });
+  const logo = getLogoDataUri();
+  if(logo){ try{ doc.addImage(logo, 'PNG', 14, 10, 16, 16); }catch(e){ /* logo optional, skip silently if it fails to embed */ } }
+  doc.setFontSize(14); doc.text('Salem City Municipal Corporation', logo?36:14, 16);
+  doc.setFontSize(11); doc.text('Vacancy Report', logo?36:14, 22);
+  doc.setFontSize(9); doc.setTextColor(100);
+  doc.text(`Scope: ${vacancyScope}  ·  Generated: ${new Date().toLocaleString('en-IN')}`, 14, 32);
+  doc.autoTable({
+    startY:38,
+    head:[['Designation','Cadre (per G.O. 152)','Sanctioned','Filled','Status']],
+    body: data.map(r=>[r['Designation'], r['Cadre (per G.O. 152)'], r['Sanctioned'], r['Filled'], r['Status']]),
+    styles:{fontSize:8, cellPadding:2.2},
+    headStyles:{fillColor:[47,95,224], textColor:255},
+    alternateRowStyles:{fillColor:[247,249,252]},
+  });
+  doc.save(`SCMC_Vacancy_${vacancyScope.replace(/[^a-z0-9]+/gi,'_')}.pdf`);
+  toast(`Exported ${data.length} rows to PDF.`);
+});
+
+/* =================================================================
+   RETIREMENT — DOB + 60 years, grouped into cumulative horizons
+==================================================================*/
+let retirementHorizon = 1; // months: 1, 3, or 12
+
+function getUpcomingRetirements(horizonMonths){
+  return employees.filter(e=>empInScope(e.id) && e.dob)
+    .map(e=>{
+      const ret = calcRetirementDate(e.dob);
+      const p = currentPosting(e.id);
+      return {e, p, ret, monthsLeft: ret ? monthsUntil(ret) : null};
+    })
+    .filter(x=> x.ret!==null && x.monthsLeft!==null && x.monthsLeft>=0 && x.monthsLeft<=horizonMonths)
+    .sort((a,b)=> a.ret.localeCompare(b.ret));
+}
+function renderRetirement(){
+  document.querySelectorAll('#retirementScopeChips .scope-chip').forEach(b=>{
+    b.classList.toggle('active', Number(b.dataset.horizon)===retirementHorizon);
+  });
+  const rows = getUpcomingRetirements(retirementHorizon);
+  const within1 = getUpcomingRetirements(1).length;
+  const within3 = getUpcomingRetirements(3).length;
+  const within12 = getUpcomingRetirements(12).length;
+  const noDobCount = employees.filter(e=>empInScope(e.id) && !e.dob).length;
+
+  document.getElementById('retirementStats').innerHTML = `
+    ${statCard('#FEF3DD','var(--orange)', iconFlag(), within1, 'Retiring within 1 month')}
+    ${statCard('#E0F6FA','var(--cyan)', iconBuilding(), within3, 'Retiring within 3 months')}
+    ${statCard('#E7EEFE','var(--blue)', iconPeople(), within12, 'Retiring within 1 year')}
+  `;
+  document.getElementById('retirementNoDobNote').textContent = noDobCount>0
+    ? `${noDobCount} employee${noDobCount===1?'':'s'} in scope ${noDobCount===1?'has':'have'} no Date of Birth recorded and ${noDobCount===1?'is':'are'} excluded from this list — add it via Edit details to include them.`
+    : '';
+
+  document.getElementById('retirementBody').innerHTML = rows.length ? rows.map(({e,p,ret,monthsLeft})=>`
+    <tr class="rowclick" data-emp="${e.id}">
+      <td data-label="">${avatarHtml(e)}</td>
+      <td class="mono" data-label="Emp ID">${e.id}</td>
+      <td data-label="Name">${e.name}</td>
+      <td data-label="Designation">${p?p.designation:'—'}</td>
+      <td data-label="Zone">${p?p.zone:'—'}</td>
+      <td data-label="Date of Birth">${fmtDate(e.dob)}</td>
+      <td data-label="Retirement Date"><b>${fmtDate(ret)}</b> <span class="pill ${monthsLeft<=1?'red':monthsLeft<=3?'orange':'blue'}">${monthsLeft===0?'this month':monthsLeft+' mo'}</span></td>
+    </tr>`).join('') : `<tr><td colspan="7" class="empty">No one retiring within this horizon.</td></tr>`;
+  document.querySelectorAll('#retirementBody tr[data-emp]').forEach(tr=> tr.addEventListener('click', ()=>openDrawer(tr.dataset.emp)));
+}
+document.querySelectorAll('#retirementScopeChips .scope-chip').forEach(btn=>{
+  btn.addEventListener('click', ()=>{ retirementHorizon = Number(btn.dataset.horizon); renderRetirement(); });
+});
+function buildRetirementExportRows(){
+  return getUpcomingRetirements(retirementHorizon).map(({e,p,ret,monthsLeft})=>({
+    'Emp ID': e.id, 'Name': e.name, 'Designation': p?p.designation:'—', 'Zone': p?p.zone:'—',
+    'Date of Birth': fmtDate(e.dob), 'Retirement Date': fmtDate(ret), 'Months Remaining': monthsLeft,
+  }));
+}
+const RETIREMENT_HORIZON_LABEL = {1:'Within 1 Month', 3:'Within 3 Months', 12:'Within 1 Year'};
+document.getElementById('btnRetirementExportExcel').addEventListener('click', ()=>{
+  if(typeof XLSX === 'undefined'){ toast('Excel library still loading — try again in a moment.'); return; }
+  const data = buildRetirementExportRows();
+  if(!data.length){ toast('No one retiring within this horizon.'); return; }
+  const wb = XLSX.utils.book_new();
+  const title = [
+    ['Salem City Municipal Corporation'],
+    ['Retirement Report'],
+    [`Horizon: ${RETIREMENT_HORIZON_LABEL[retirementHorizon]}`],
+    [`Generated: ${new Date().toLocaleString('en-IN')}`],
+    [],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(title);
+  XLSX.utils.sheet_add_json(ws, data, {origin:'A6', skipHeader:false});
+  ws['!cols'] = [{wch:12},{wch:24},{wch:26},{wch:22},{wch:14},{wch:14},{wch:16}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Retirement');
+  XLSX.writeFile(wb, `SCMC_Retirement_${RETIREMENT_HORIZON_LABEL[retirementHorizon].replace(/[^a-z0-9]+/gi,'_')}.xlsx`);
+  toast(`Exported ${data.length} rows to Excel.`);
+});
+document.getElementById('btnRetirementExportPDF').addEventListener('click', ()=>{
+  if(typeof window.jspdf === 'undefined'){ toast('PDF library still loading — try again in a moment.'); return; }
+  const { jsPDF } = window.jspdf;
+  const data = buildRetirementExportRows();
+  if(!data.length){ toast('No one retiring within this horizon.'); return; }
+  const doc = new jsPDF({ orientation:'landscape' });
+  const logo = getLogoDataUri();
+  if(logo){ try{ doc.addImage(logo, 'PNG', 14, 10, 16, 16); }catch(e){} }
+  doc.setFontSize(14); doc.text('Salem City Municipal Corporation', logo?36:14, 16);
+  doc.setFontSize(11); doc.text('Retirement Report', logo?36:14, 22);
+  doc.setFontSize(9); doc.setTextColor(100);
+  doc.text(`Horizon: ${RETIREMENT_HORIZON_LABEL[retirementHorizon]}  ·  Generated: ${new Date().toLocaleString('en-IN')}`, 14, 32);
+  doc.autoTable({
+    startY:38,
+    head:[['Emp ID','Name','Designation','Zone','Date of Birth','Retirement Date','Months Left']],
+    body: data.map(r=>[r['Emp ID'],r['Name'],r['Designation'],r['Zone'],r['Date of Birth'],r['Retirement Date'],r['Months Remaining']]),
+    styles:{fontSize:8, cellPadding:2.2},
+    headStyles:{fillColor:[47,95,224], textColor:255},
+    alternateRowStyles:{fillColor:[247,249,252]},
+  });
+  doc.save(`SCMC_Retirement_${RETIREMENT_HORIZON_LABEL[retirementHorizon].replace(/[^a-z0-9]+/gi,'_')}.pdf`);
+  toast(`Exported ${data.length} rows to PDF.`);
+});
 
 /* =================================================================
    BULK IMPORT
@@ -2307,7 +2565,7 @@ document.getElementById('btnAddUser').addEventListener('click', ()=>{
 /* =================================================================
    SETTINGS — admin-managed dropdown lists (Designations/Sections/Categories)
 ==================================================================*/
-const LIST_STORE = { designation: () => DESIGNATIONS, section: () => SECTIONS, category: () => CATEGORIES };
+const LIST_STORE = { designation: () => DESIGNATIONS, section: () => SECTIONS, category: () => CATEGORIES, caste: () => CASTE_CATEGORIES };
 function listRowHtml(kind, item){
   return `<div class="history-row"><div>${item}</div>
     <button class="btn danger small" data-del-item="${kind}" data-val="${item}">Remove</button></div>`;
@@ -2316,6 +2574,7 @@ function renderSettingsLists(){
   document.getElementById('listDesignations').innerHTML = DESIGNATIONS.map(d=>listRowHtml('designation', d)).join('') || '<div class="empty">No designations yet.</div>';
   document.getElementById('listSections').innerHTML = SECTIONS.map(s=>listRowHtml('section', s)).join('') || '<div class="empty">No sections yet.</div>';
   document.getElementById('listCategories').innerHTML = CATEGORIES.map(c=>listRowHtml('category', c)).join('') || '<div class="empty">No categories yet.</div>';
+  document.getElementById('listCaste').innerHTML = CASTE_CATEGORIES.map(c=>listRowHtml('caste', c)).join('') || '<div class="empty">No caste categories yet.</div>';
   document.querySelectorAll('[data-del-item]').forEach(b=>{
     b.addEventListener('click', ()=>{
       const kind = b.dataset.delItem, val = b.dataset.val;
@@ -2323,6 +2582,7 @@ function renderSettingsLists(){
         if(kind==='designation') DESIGNATIONS = DESIGNATIONS.filter(x=>x!==val);
         if(kind==='section') SECTIONS = SECTIONS.filter(x=>x!==val);
         if(kind==='category') CATEGORIES = CATEGORIES.filter(x=>x!==val);
+        if(kind==='caste') CASTE_CATEGORIES = CASTE_CATEGORIES.filter(x=>x!==val);
         if(backendConfigured()) persist('removeListItem', {type:kind, value:val});
         renderSettingsLists(); toast(`"${val}" removed from ${kind} list.`);
       });
@@ -2332,7 +2592,7 @@ function renderSettingsLists(){
 document.querySelectorAll('[data-add-list]').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     const kind = btn.dataset.addList;
-    const inputId = kind==='designation' ? 'newDesigInput' : kind==='section' ? 'newSectionInput' : 'newCategoryInput';
+    const inputId = kind==='designation' ? 'newDesigInput' : kind==='section' ? 'newSectionInput' : kind==='category' ? 'newCategoryInput' : 'newCasteInput';
     const input = document.getElementById(inputId);
     const val = input.value.trim();
     if(!val){ toast('Type a name first.'); return; }
@@ -2341,6 +2601,7 @@ document.querySelectorAll('[data-add-list]').forEach(btn=>{
     if(kind==='designation') DESIGNATIONS.push(val);
     if(kind==='section') SECTIONS.push(val);
     if(kind==='category') CATEGORIES.push(val);
+    if(kind==='caste') CASTE_CATEGORIES.push(val);
     if(backendConfigured()) persist('addListItem', {type:kind, value:val});
     input.value='';
     renderSettingsLists(); toast(`"${val}" added to ${kind} list.`);
