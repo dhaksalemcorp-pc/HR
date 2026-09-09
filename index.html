@@ -275,6 +275,10 @@
   .view-toggle-btn.active{background:var(--blue); color:#fff;}
   .card-gallery-group-label{font-size:11px; font-weight:700; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.04em; margin:22px 0 10px;}
   .card-gallery-group-label:first-child{margin-top:0;}
+  .card-gallery-group-label.clickable{cursor:pointer;}
+  .card-gallery-group-label.clickable:hover{color:var(--blue);}
+  .card-gallery-group-label.active{color:var(--blue);}
+  .card-gallery-group-label .clear-hint{font-weight:600; text-transform:none; letter-spacing:normal; margin-left:4px;}
   .card-gallery-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:10px;}
   .emp-card{
     background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px; text-align:center;
@@ -926,6 +930,22 @@ let SECTIONS = ["Commissioner's Office","Mayor Office","Deputy Mayor Office","Ge
 let CATEGORIES = ["Regular","Deputation","Temporary"];
 let CASTE_CATEGORIES = ["General/OC","BC","BCM","MBC/DNC","SC","SC(A)","ST","Other"];
 const RECRUITMENT_TYPES = ["Direct Recruit","Promotion"];
+// Seat is only meaningful for these two designations (e.g. "C6", "E10 & E11") — every other
+// designation has no such named-seat concept, so the field only shows when relevant.
+const SEAT_ELIGIBLE_DESIGNATIONS = ["Junior Assistant","Assistant"];
+function seatFieldHtml(fieldId, currentValue, currentDesignation){
+  const show = SEAT_ELIGIBLE_DESIGNATIONS.includes(currentDesignation);
+  return `<div class="field" id="${fieldId}_wrap" style="display:${show?'':'none'};"><label>Seat</label><input type="text" id="${fieldId}" value="${currentValue||''}" placeholder="e.g. C6"></div>`;
+}
+// Wires a designation <select> so the paired seat field only shows for Junior Assistant/Assistant.
+function wireSeatFieldVisibility(desigSelectId, fieldId){
+  const desigSelect = document.getElementById(desigSelectId);
+  const wrap = document.getElementById(fieldId+'_wrap');
+  if(!desigSelect || !wrap) return;
+  const update = ()=>{ wrap.style.display = SEAT_ELIGIBLE_DESIGNATIONS.includes(desigSelect.value) ? '' : 'none'; };
+  desigSelect.addEventListener('change', update);
+  update();
+}
 let DESIGNATIONS = ["Commissioner","Deputy Commissioner","Assistant Commissioner (Zone)","Assistant Commissioner (Revenue)","Assistant Commissioner (Personnel)","Assistant Commissioner (Accounts)","Accounts Officer","Council Secretary","Public Relation Officer","Administrative Officer","Revenue Officer","Superintendent","Assistant Revenue Officer","Assistant","Personal Clerk","Junior Assistant","Driver","City Health Officer","Assistant City Health Officer","Veterinary Medical Officer","Sanitary Officer","Sanitary Inspector","Entomologist","City Engineer","Deputy City Engineer","Zonal Engineer","Assistant Executive Engineer","Assistant Engineer / Junior Engineer","Draughtsman","Technical Assistant / Public Works Overseer","Electrical Superintendent","Junior Engineer (Automobile)","City Planner","Assistant City Planner","Planning Inspector","Sanitary Worker","Office Assistant","Unskilled Worker","DBC Worker"];
 // Field/support roles outside G.O. 152's sanctioned cadre. DBC Worker is flagged separately as internal-use tracking.
 const FIELD_DESIGNATIONS = ["Sanitary Worker","Office Assistant","Unskilled Worker"];
@@ -1132,6 +1152,22 @@ function calcIncrementMonth(doj){
   const quarterStart = Math.floor(dt.getMonth()/3)*3;
   return MONTH_NAMES[quarterStart];
 }
+// Duration worked on a posting, from start to (end || today). Returns a compact human string
+// like "2 yrs 3 mo", "7 mo", or "Less than a month" — never a raw day count.
+function calcDuration(start, end){
+  if(!start) return null;
+  const s = new Date(start+"T00:00:00");
+  const e = end ? new Date(end+"T00:00:00") : new Date();
+  if(isNaN(s.getTime()) || isNaN(e.getTime()) || e<s) return null;
+  let months = (e.getFullYear()-s.getFullYear())*12 + (e.getMonth()-s.getMonth());
+  if(e.getDate() < s.getDate()) months--;
+  if(months<0) months=0;
+  const years = Math.floor(months/12), remMonths = months%12;
+  if(years===0 && remMonths===0) return 'Less than a month';
+  if(years===0) return `${remMonths} mo`;
+  if(remMonths===0) return `${years} yr${years===1?'':'s'}`;
+  return `${years} yr${years===1?'':'s'} ${remMonths} mo`;
+}
 function initials(name){ return (name||'?').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
 function zoneShort(z){ return z.replace(/^Zone-\d+\s*/,'').replace('Main Office','Main Office'); }
 function formatZoneScopeLabel(zoneNameList){
@@ -1205,7 +1241,7 @@ async function loadAllFromBackend(){
     category:e.category||'Regular', caste:e.caste||'', recruitmentType:e.recruitmentType||'', photo:e.photo||null,
     deputation: e.depType ? {type:e.depType, org:e.depOrg||''} : null
   }));
-  postings = d.postings.map(p=>({ id:p.id, empId:p.empId, designation:p.designation, zone:p.zone, section:p.section, start:p.start, end:p.end||null }));
+  postings = d.postings.map(p=>({ id:p.id, empId:p.empId, designation:p.designation, zone:p.zone, section:p.section, start:p.start, end:p.end||null, seat:p.seat||'', order:(p.order!==undefined && p.order!=='') ? Number(p.order) : null }));
   charges = d.charges.map(c=>({ id:c.id, empId:c.empId, role:c.role, zone:c.zone, section:c.section, start:c.start, end:c.end||null }));
   schemes = d.schemes.map(s=>({ id:s.id, scheme:s.scheme, empId:s.empId, start:s.start, end:s.end||null }));
   sanctionedPosts = d.sanctionedPosts.map(sp=>({ zone:sp.zone, designation:sp.designation, sanctioned:Number(sp.sanctioned)||0 }));
@@ -1443,11 +1479,22 @@ function rebuildZoneOptions(){
   zoneFilterEl.innerHTML = '<option value="">All zones</option>' + visibleZones().map(z=>`<option value="${z}">${z}</option>`).join('');
 }
 function rebuildOtherFilterOptions(){
+  // Preserve + restore the current selection across the rebuild — this function used to only
+  // run once, at login, so any designation introduced afterward (a new employee, an ad-hoc
+  // designation from bulk import) could never actually be selected: setting a <select>'s
+  // .value to a string with no matching <option> silently fails and leaves the old value in
+  // place. Now called at the top of every renderDirectory(), so it's always current.
+  const currentDesig = desigFilterEl.value;
+  const currentCat = categoryFilterEl.value;
+  const currentSection = sectionFilterEl.value;
   const vz = visibleZones();
   const desigs = [...new Set(postings.filter(p=>!p.end && vz.includes(p.zone)).map(p=>p.designation))].sort();
   desigFilterEl.innerHTML = '<option value="">All designations</option>' + desigs.map(d=>`<option>${d}</option>`).join('');
+  if(desigs.includes(currentDesig)) desigFilterEl.value = currentDesig;
   categoryFilterEl.innerHTML = '<option value="">All categories</option>' + CATEGORIES.map(c=>`<option>${c}</option>`).join('');
+  if(CATEGORIES.includes(currentCat)) categoryFilterEl.value = currentCat;
   sectionFilterEl.innerHTML = '<option value="">All sections</option>' + SECTIONS.map(s=>`<option>${s}</option>`).join('');
+  if(SECTIONS.includes(currentSection)) sectionFilterEl.value = currentSection;
 }
 function avatarHtml(e, size){
   const s = size||32;
@@ -1458,10 +1505,10 @@ function getDirectoryRows(){
   const q = document.getElementById('searchBox').value.trim().toLowerCase();
   const zf = zoneFilterEl.value, df = desigFilterEl.value, cf = categoryFilterEl.value, sf = sectionFilterEl.value;
   return employees.filter(e=>empInScope(e.id)).map(e=>{ const p=currentPosting(e.id); const ac=activeCharges(e.id); return {e,p,ac}; })
-    .filter(({e,p})=>{
-      // Genuinely universal: name, Emp ID, designation, zone, section, category, and phone —
-      // not just the first three. (x||'') guards make this safe even if a field is missing
-      // on a given record, rather than risking a crash on real-world incomplete data.
+    .filter(({e,p,ac})=>{
+      // Genuinely universal: name, Emp ID, designation, zone, section, category, phone, and
+      // now Additional Charge / Work Allocation roles too. (x||'') guards make this safe even
+      // if a field is missing on a given record, rather than risking a crash on incomplete data.
       const mq = !q
         || (e.name||'').toLowerCase().includes(q)
         || (e.id||'').toLowerCase().includes(q)
@@ -1469,7 +1516,8 @@ function getDirectoryRows(){
         || (e.phone||'').toLowerCase().includes(q)
         || (p && (p.designation||'').toLowerCase().includes(q))
         || (p && (p.zone||'').toLowerCase().includes(q))
-        || (p && (p.section||'').toLowerCase().includes(q));
+        || (p && (p.section||'').toLowerCase().includes(q))
+        || ac.some(c=>(c.role||'').toLowerCase().includes(q));
       const mz = !zf || (p && p.zone===zf);
       const md = !df || (p && p.designation===df);
       const mc = !cf || e.category===cf;
@@ -1498,6 +1546,7 @@ function deputationPill(e){
 }
 let directoryViewMode = 'table'; // 'table' | 'cards'
 function renderDirectory(){
+  rebuildOtherFilterOptions();
   const rows = getDirectoryRows();
   document.getElementById('directoryEmpty').style.display = rows.length ? 'none' : 'block';
   document.getElementById('filterCount').textContent = `${rows.length} employee${rows.length===1?'':'s'} shown`;
@@ -1513,7 +1562,7 @@ function renderDirectoryTable(rows){
       <td class="mono" data-label="Emp ID">${e.id}</td>
       <td data-label="Name">${e.name}${deputationPill(e)}</td>
       <td data-label="Designation">${p ? p.designation : '<span class="pill gray">No active posting</span>'}</td>
-      <td data-label="Zone / Section">${p ? p.zone+' · '+p.section : '—'}</td>
+      <td data-label="Zone / Section">${p ? p.zone+' · '+p.section+(p.seat?' · Seat '+p.seat:'') : '—'}</td>
       <td class="col-charge" data-label="Additional Charge">${ac.length ? ac.map(c=>`<span class="pill blue">${c.role}</span>`).join(' ') : '—'}</td>
     </tr>`).join('');
   body.querySelectorAll('tr.rowclick').forEach(tr=> tr.addEventListener('click', ()=>openDrawer(tr.dataset.emp)));
@@ -1552,9 +1601,24 @@ function renderDirectoryCards(rows){
         <p class="nm">${e.name}</p>
         <p class="idl mono">${e.id}</p>
       </div>`).join('');
-    return `<div class="card-gallery-group-label">${label} · ${groups[key].length}</div><div class="card-gallery-grid">${cards}</div>`;
+    // Clicking a group label filters the card view down to just that designation, reusing
+    // the SAME shared desigFilterEl the table view and its dropdown already use — one filter
+    // state, same as the zone chips. Clicking the already-active group's label clears back
+    // to "all designations" instead of doing nothing.
+    const clickable = key!=='__none__';
+    const isActive = desigFilterEl.value===key;
+    const labelHtml = clickable
+      ? `<div class="card-gallery-group-label clickable ${isActive?'active':''}" data-desig-group="${key}">${label} · ${groups[key].length}${isActive?' <span class="clear-hint">✕ clear</span>':''}</div>`
+      : `<div class="card-gallery-group-label">${label} · ${groups[key].length}</div>`;
+    return labelHtml + `<div class="card-gallery-grid">${cards}</div>`;
   }).join('') || '';
   body.querySelectorAll('[data-emp]').forEach(el=> el.addEventListener('click', ()=>openDrawer(el.dataset.emp)));
+  body.querySelectorAll('[data-desig-group]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      desigFilterEl.value = (desigFilterEl.value === el.dataset.desigGroup) ? '' : el.dataset.desigGroup;
+      renderDirectory();
+    });
+  });
 }
 document.querySelectorAll('#directoryViewToggle .view-toggle-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
@@ -1872,6 +1936,23 @@ function readDeputationFromForm(){
 
 /* ---------------- Drawer ---------------- */
 let drawerEmpId = null;
+// Sort key for posting history: an explicit `order` if the admin has set one via the
+// reorder buttons, otherwise the start date's own timestamp — so untouched records sort
+// exactly as before (newest first) and only diverge once someone deliberately shuffles them.
+function effectiveOrderVal(p){
+  return (p.order!=null && p.order!=='') ? Number(p.order) : new Date((p.start||'1970-01-01')+"T00:00:00").getTime();
+}
+function movePostingInHistory(empId, pid, direction){ // direction: -1 = up (more recent), +1 = down
+  const hist = postings.filter(p=>p.empId===empId).sort((a,b)=> effectiveOrderVal(b) - effectiveOrderVal(a));
+  const idx = hist.findIndex(p=>p.id===pid);
+  const swapIdx = idx+direction;
+  if(idx===-1 || swapIdx<0 || swapIdx>=hist.length) return;
+  const a = hist[idx], b = hist[swapIdx];
+  const oa = effectiveOrderVal(a), ob = effectiveOrderVal(b);
+  a.order = ob; b.order = oa;
+  if(backendConfigured()){ persist('updatePosting', {id:a.id, fields:{order:a.order}}); persist('updatePosting', {id:b.id, fields:{order:b.order}}); }
+  openDrawer(empId); renderDirectory(); renderDashboard();
+}
 function openDrawer(empId){
   try{
     drawerEmpId = empId;
@@ -1900,14 +1981,26 @@ function openDrawer(empId){
     // render with no error shown — this is very likely what "clicking does nothing for some
     // employees" actually was. The try/catch around this whole function is the backstop for
     // anything else in the same shape we haven't found yet: it can now never fail silently.
-    const hist = postings.filter(p=>p.empId===empId).sort((a,b)=>(b.start||'').localeCompare(a.start||''));
-    document.getElementById('drawerPostings').innerHTML = hist.length ? hist.map(p=>`
-      <div class="history-row"><div><b>${p.designation}</b><br><span style="color:var(--ink-faint)">${p.zone} · ${p.section}</span></div>
+    // Sort key: an explicit `order` field when one has been set (via the reorder buttons
+    // below), falling back to the start date's timestamp for every existing record that
+    // predates this feature — so default behavior (newest first) is completely unchanged
+    // until an admin actually chooses to shuffle something.
+    const hist = postings.filter(p=>p.empId===empId).sort((a,b)=> effectiveOrderVal(b) - effectiveOrderVal(a));
+    document.getElementById('drawerPostings').innerHTML = hist.length ? hist.map((p,i)=>`
+      <div class="history-row"><div><b>${p.designation}</b><br><span style="color:var(--ink-faint)">${p.zone} · ${p.section}${p.seat?' · Seat '+p.seat:''}</span></div>
       <div style="text-align:right;">
         <div style="white-space:nowrap;">${fmtDate(p.start)} – ${p.end?fmtDate(p.end):'<span class="pill green">Current</span>'}</div>
-        ${isAdmin() ? `<div style="margin-top:5px;"><button class="btn ghost small" data-edit-posting="${p.id}">Edit</button> <button class="btn danger small" data-del-posting="${p.id}">Delete</button></div>` : ''}
+        <div style="font-size:11px; color:var(--ink-faint); margin-top:2px;">${calcDuration(p.start,p.end)||''}</div>
+        ${isAdmin() ? `<div style="margin-top:5px; display:flex; gap:4px; justify-content:flex-end;">
+          <button class="btn ghost small" data-move-posting-up="${p.id}" ${i===0?'disabled':''} title="Move up">↑</button>
+          <button class="btn ghost small" data-move-posting-down="${p.id}" ${i===hist.length-1?'disabled':''} title="Move down">↓</button>
+          <button class="btn ghost small" data-edit-posting="${p.id}">Edit</button>
+          <button class="btn danger small" data-del-posting="${p.id}">Delete</button>
+        </div>` : ''}
       </div></div>`).join('')
       : '<div class="empty">No postings recorded.</div>';
+    document.querySelectorAll('[data-move-posting-up]').forEach(b=> b.addEventListener('click', ()=> movePostingInHistory(empId, b.dataset.movePostingUp, -1)));
+    document.querySelectorAll('[data-move-posting-down]').forEach(b=> b.addEventListener('click', ()=> movePostingInHistory(empId, b.dataset.movePostingDown, 1)));
     document.querySelectorAll('[data-edit-posting]').forEach(b=> b.addEventListener('click', ()=> openEditPosting(b.dataset.editPosting)));
     document.querySelectorAll('[data-del-posting]').forEach(b=> b.addEventListener('click', ()=>{
       const pid = b.dataset.delPosting;
@@ -1988,6 +2081,7 @@ document.getElementById('btnAddEmployee').addEventListener('click', ()=>{
     <div class="field"><label>Recruitment</label><select id="f_recruit">${RECRUITMENT_TYPES.map(r=>`<option>${r}</option>`).join('')}</select></div>
     <div class="field"><label>Category</label><select id="f_cat">${CATEGORIES.map(c=>`<option>${c}</option>`).join('')}</select></div>
     <div class="field"><label>Designation</label><select id="f_desig">${DESIGNATIONS.map(d=>`<option>${d}</option>`).join('')}</select></div>
+    ${seatFieldHtml('f_seat', '', DESIGNATIONS[0])}
     <div class="field"><label>Zone</label><select id="f_zone" ${lockZone?'disabled':''}>${vz.map(z=>`<option>${z}</option>`).join('')}</select></div>
     <div class="field"><label>Section</label><select id="f_section">${SECTIONS.map(s=>`<option>${s}</option>`).join('')}</select></div>
     <div class="field"><label>Date of joining</label><input type="date" id="f_doj"></div>
@@ -1997,6 +2091,7 @@ document.getElementById('btnAddEmployee').addEventListener('click', ()=>{
   `);
   wirePhotoInput();
   wireDeputationField();
+  wireSeatFieldVisibility('f_desig', 'f_seat');
   document.getElementById('saveEmployee').addEventListener('click', async ()=>{
     const name=document.getElementById('f_name').value.trim(); const doj=document.getElementById('f_doj').value;
     if(!name||!doj){ toast('Name and date of joining are required.'); return; }
@@ -2027,12 +2122,13 @@ document.getElementById('btnAddEmployee').addEventListener('click', ()=>{
     const designation = document.getElementById('f_desig').value||'Unassigned';
     const zone = lockZone?currentUser.zone:document.getElementById('f_zone').value;
     const section = document.getElementById('f_section').value;
+    const seat = SEAT_ELIGIBLE_DESIGNATIONS.includes(designation) ? document.getElementById('f_seat').value.trim() : '';
     let pstId;
     if(backendConfigured()){
-      const pres = await apiCall('addPosting', {empId:id, designation, zone, section, start:doj, end:''});
+      const pres = await apiCall('addPosting', {empId:id, designation, zone, section, start:doj, end:'', seat});
       pstId = pres.ok ? pres.data.id : ("PST-"+Date.now());
     } else { seq.pst++; pstId = "PST-"+pad(seq.pst); }
-    postings.push({id:pstId, empId:id, designation, zone, section, start:doj, end:null});
+    postings.push({id:pstId, empId:id, designation, zone, section, start:doj, end:null, seat});
     closeModal(); renderDirectory(); renderDashboard(); toast(`${name} added as ${id}.`);
     } finally { clearBtnLoading(btn); }
   });
@@ -2131,11 +2227,13 @@ document.getElementById('btnTransfer').addEventListener('click', ()=>{
     <div class="hint">Closes the current posting and opens a new one — history is kept, nothing overwritten.</div>
     <div class="field"><label>Current posting</label><input type="text" value="${cur?cur.designation+' · '+cur.zone:'None'}" disabled></div>
     <div class="field"><label>New designation</label><select id="t_desig">${DESIGNATIONS.map(d=>`<option ${cur&&cur.designation===d?'selected':''}>${d}</option>`).join('')}</select></div>
+    ${seatFieldHtml('t_seat', '', cur?cur.designation:DESIGNATIONS[0])}
     <div class="field"><label>New zone</label><select id="t_zone" ${lockZone?'disabled':''}>${(lockZone?[currentUser.zone]:vz).map(z=>`<option ${cur&&cur.zone===z?'selected':''}>${z}</option>`).join('')}</select></div>
     <div class="field"><label>New section</label><select id="t_section">${SECTIONS.map(s=>`<option ${cur&&cur.section===s?'selected':''}>${s}</option>`).join('')}</select></div>
     <div class="field"><label>Effective date</label><input type="date" id="t_date"></div>
     <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="saveTransfer">Confirm transfer</button></div>
   `);
+  wireSeatFieldVisibility('t_desig', 't_seat');
   document.getElementById('saveTransfer').addEventListener('click', async ()=>{
     const date=document.getElementById('t_date').value;
     if(!date){ toast('Effective date is required.'); return; }
@@ -2146,12 +2244,13 @@ document.getElementById('btnTransfer').addEventListener('click', ()=>{
     const designation = document.getElementById('t_desig').value;
     const zone = lockZone?currentUser.zone:document.getElementById('t_zone').value;
     const section = document.getElementById('t_section').value;
+    const seat = SEAT_ELIGIBLE_DESIGNATIONS.includes(designation) ? document.getElementById('t_seat').value.trim() : '';
     let pstId;
     if(backendConfigured()){
-      const res = await apiCall('addPosting', {empId:drawerEmpId, designation, zone, section, start:date, end:''});
+      const res = await apiCall('addPosting', {empId:drawerEmpId, designation, zone, section, start:date, end:'', seat});
       pstId = res.ok ? res.data.id : ("PST-"+Date.now());
     } else { seq.pst++; pstId = "PST-"+pad(seq.pst); }
-    postings.push({id:pstId, empId:drawerEmpId, designation, zone, section, start:date, end:null});
+    postings.push({id:pstId, empId:drawerEmpId, designation, zone, section, start:date, end:null, seat});
     closeModal(); openDrawer(drawerEmpId); renderDirectory(); renderDashboard(); toast('Transfer recorded.');
     } finally { clearBtnLoading(btn); }
   });
@@ -2163,12 +2262,14 @@ document.getElementById('btnAddPastRecord').addEventListener('click', ()=>{
     <h3>Add past posting record</h3>
     <div class="hint">Backfills a posting that already ended — for history that was never entered at the time. This does not touch the employee's current posting.</div>
     <div class="field"><label>Designation</label><select id="pr_desig">${DESIGNATIONS.map(d=>`<option>${d}</option>`).join('')}</select></div>
+    ${seatFieldHtml('pr_seat', '', DESIGNATIONS[0])}
     <div class="field"><label>Zone</label><select id="pr_zone" ${lockZone?'disabled':''}>${(lockZone?[currentUser.zone]:vz).map(z=>`<option>${z}</option>`).join('')}</select></div>
     <div class="field"><label>Section</label><select id="pr_section">${SECTIONS.map(s=>`<option>${s}</option>`).join('')}</select></div>
     <div class="field"><label>Start date</label><input type="date" id="pr_start"></div>
     <div class="field"><label>End date</label><input type="date" id="pr_end"></div>
     <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="savePastRecord">Save past record</button></div>
   `);
+  wireSeatFieldVisibility('pr_desig', 'pr_seat');
   document.getElementById('savePastRecord').addEventListener('click', async ()=>{
     const start = document.getElementById('pr_start').value;
     const end = document.getElementById('pr_end').value;
@@ -2180,12 +2281,13 @@ document.getElementById('btnAddPastRecord').addEventListener('click', ()=>{
     const designation = document.getElementById('pr_desig').value;
     const zone = lockZone?currentUser.zone:document.getElementById('pr_zone').value;
     const section = document.getElementById('pr_section').value;
+    const seat = SEAT_ELIGIBLE_DESIGNATIONS.includes(designation) ? document.getElementById('pr_seat').value.trim() : '';
     let pstId;
     if(backendConfigured()){
-      const res = await apiCall('addPosting', {empId:drawerEmpId, designation, zone, section, start, end});
+      const res = await apiCall('addPosting', {empId:drawerEmpId, designation, zone, section, start, end, seat});
       pstId = res.ok ? res.data.id : ("PST-"+Date.now());
     } else { seq.pst++; pstId = "PST-"+pad(seq.pst); }
-    postings.push({id:pstId, empId:drawerEmpId, designation, zone, section, start, end});
+    postings.push({id:pstId, empId:drawerEmpId, designation, zone, section, start, end, seat});
     closeModal(); openDrawer(drawerEmpId); renderDirectory(); renderDashboard(); toast('Past record added to posting history.');
     } finally { clearBtnLoading(btn); }
   });
@@ -2199,15 +2301,18 @@ document.getElementById('btnEditCurrentPosting').addEventListener('click', ()=>{
     <h3>Edit current posting</h3>
     <div class="hint">Corrects the existing posting in place — no new history row, no old row closed. Use this for fixing data-entry mistakes only; use "Record transfer" for a real move.</div>
     <div class="field"><label>Designation</label><select id="ep_desig">${DESIGNATIONS.map(d=>`<option ${cur.designation===d?'selected':''}>${d}</option>`).join('')}</select></div>
+    ${seatFieldHtml('ep_seat', cur.seat, cur.designation)}
     <div class="field"><label>Zone</label><select id="ep_zone" ${lockZone?'disabled':''}>${(lockZone?[currentUser.zone]:vz).map(z=>`<option ${cur.zone===z?'selected':''}>${z}</option>`).join('')}</select></div>
     <div class="field"><label>Section</label><select id="ep_section">${SECTIONS.map(s=>`<option ${cur.section===s?'selected':''}>${s}</option>`).join('')}</select></div>
     <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="saveEditCurrentPosting">Save correction</button></div>
   `);
+  wireSeatFieldVisibility('ep_desig', 'ep_seat');
   document.getElementById('saveEditCurrentPosting').addEventListener('click', ()=>{
     cur.designation = document.getElementById('ep_desig').value;
     cur.zone = lockZone?currentUser.zone:document.getElementById('ep_zone').value;
     cur.section = document.getElementById('ep_section').value;
-    if(backendConfigured()) persist('updatePosting', {id:cur.id, fields:{designation:cur.designation, zone:cur.zone, section:cur.section}});
+    cur.seat = SEAT_ELIGIBLE_DESIGNATIONS.includes(cur.designation) ? document.getElementById('ep_seat').value.trim() : '';
+    if(backendConfigured()) persist('updatePosting', {id:cur.id, fields:{designation:cur.designation, zone:cur.zone, section:cur.section, seat:cur.seat}});
     closeModal(); openDrawer(drawerEmpId); renderDirectory(); renderDashboard(); toast('Current posting corrected.');
   });
 });
@@ -2221,12 +2326,14 @@ function openEditPosting(id){
     <h3>Edit posting record</h3>
     <div class="hint">Admin override — full control over this history entry, including its dates. Use carefully.</div>
     <div class="field"><label>Designation</label><select id="pe_desig">${DESIGNATIONS.map(d=>`<option ${p.designation===d?'selected':''}>${d}</option>`).join('')}</select></div>
+    ${seatFieldHtml('pe_seat', p.seat, p.designation)}
     <div class="field"><label>Zone</label><select id="pe_zone">${ZONES.map(z=>`<option ${p.zone===z?'selected':''}>${z}</option>`).join('')}</select></div>
     <div class="field"><label>Section</label><select id="pe_section">${SECTIONS.map(s=>`<option ${p.section===s?'selected':''}>${s}</option>`).join('')}</select></div>
     <div class="field"><label>Start date</label><input type="date" id="pe_start" value="${p.start||''}"></div>
     <div class="field"><label>End date (blank = current)</label><input type="date" id="pe_end" value="${p.end||''}"></div>
     <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="savePostingEdit">Save</button></div>
   `);
+  wireSeatFieldVisibility('pe_desig', 'pe_seat');
   document.getElementById('savePostingEdit').addEventListener('click', ()=>{
     const start = document.getElementById('pe_start').value;
     const end = document.getElementById('pe_end').value;
@@ -2237,7 +2344,8 @@ function openEditPosting(id){
     p.section = document.getElementById('pe_section').value;
     p.start = start;
     p.end = end || null;
-    if(backendConfigured()) persist('updatePosting', {id:p.id, fields:{designation:p.designation, zone:p.zone, section:p.section, start:p.start, end:p.end||''}});
+    p.seat = SEAT_ELIGIBLE_DESIGNATIONS.includes(p.designation) ? document.getElementById('pe_seat').value.trim() : '';
+    if(backendConfigured()) persist('updatePosting', {id:p.id, fields:{designation:p.designation, zone:p.zone, section:p.section, start:p.start, end:p.end||'', seat:p.seat}});
     closeModal(); openDrawer(drawerEmpId); renderDirectory(); renderDashboard(); toast('Posting record updated.');
   });
 }
