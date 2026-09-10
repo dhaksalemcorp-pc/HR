@@ -984,6 +984,11 @@ async function apiCall(action, payload){
 function persist(action, payload){
   apiCall(action, payload).then(res=>{
     if(!res.ok && res.error!=='not-configured') toast('Could not save to server — check your connection.');
+    // A successful save can still carry a warning — e.g. the backend found no matching
+    // column for one of the fields being saved (a mismatched header name in the Sheet).
+    // Surfacing this loudly is what turns "data silently vanished" into an actionable
+    // message telling you exactly which column to check.
+    else if(res.ok && res.data && res.data.warning) toast(res.data.warning);
   });
 }
 
@@ -2125,10 +2130,12 @@ document.getElementById('btnAddEmployee').addEventListener('click', ()=>{
     const recruitmentType = document.getElementById('f_recruit').value;
     const photo = currentPhotoValue();
     let id;
+    let warnings = [];
     if(backendConfigured()){
       const res = await apiCall('addEmployee', {id:enteredId, name,dob,doj,native:"",phone,email:"",category,caste,recruitmentType,photo:photo||'',depType:dep?dep.type:'',depOrg:dep?dep.org:''});
       if(!res.ok){ toast(res.error || 'Could not save to server — try again.'); return; }
       id = res.data.id;
+      if(res.data.warning) warnings.push(res.data.warning);
     } else {
       id = enteredId;
       const m = /^SCM-(\d+)$/.exec(id);
@@ -2143,10 +2150,12 @@ document.getElementById('btnAddEmployee').addEventListener('click', ()=>{
     if(backendConfigured()){
       const pres = await apiCall('addPosting', {empId:id, designation, zone, section, start:doj, end:'', seat});
       pstId = pres.ok ? pres.data.id : ("PST-"+Date.now());
+      if(pres.ok && pres.data && pres.data.warning) warnings.push(pres.data.warning);
     } else { seq.pst++; pstId = "PST-"+pad(seq.pst); }
     postings.push({id:pstId, empId:id, designation, zone, section, start:doj, end:null, seat});
     renumberPostingsByDate(id);
-    closeModal(); renderDirectory(); renderDashboard(); toast(`${name} added as ${id}.`);
+    closeModal(); renderDirectory(); renderDashboard();
+    toast(warnings.length ? `${name} added as ${id}, but: ${warnings.join(' ')}` : `${name} added as ${id}.`);
     } finally { clearBtnLoading(btn); }
   });
 });
@@ -2263,13 +2272,16 @@ document.getElementById('btnTransfer').addEventListener('click', ()=>{
     const section = document.getElementById('t_section').value;
     const seat = SEAT_ELIGIBLE_DESIGNATIONS.includes(designation) ? document.getElementById('t_seat').value.trim() : '';
     let pstId;
+    let transferWarning = '';
     if(backendConfigured()){
       const res = await apiCall('addPosting', {empId:drawerEmpId, designation, zone, section, start:date, end:'', seat});
       pstId = res.ok ? res.data.id : ("PST-"+Date.now());
+      if(res.ok && res.data && res.data.warning) transferWarning = res.data.warning;
     } else { seq.pst++; pstId = "PST-"+pad(seq.pst); }
     postings.push({id:pstId, empId:drawerEmpId, designation, zone, section, start:date, end:null, seat});
     renumberPostingsByDate(drawerEmpId);
-    closeModal(); openDrawer(drawerEmpId); renderDirectory(); renderDashboard(); toast('Transfer recorded.');
+    closeModal(); openDrawer(drawerEmpId); renderDirectory(); renderDashboard();
+    toast(transferWarning ? `Transfer recorded, but: ${transferWarning}` : 'Transfer recorded.');
     } finally { clearBtnLoading(btn); }
   });
 });
@@ -2301,13 +2313,16 @@ document.getElementById('btnAddPastRecord').addEventListener('click', ()=>{
     const section = document.getElementById('pr_section').value;
     const seat = SEAT_ELIGIBLE_DESIGNATIONS.includes(designation) ? document.getElementById('pr_seat').value.trim() : '';
     let pstId;
+    let pastRecordWarning = '';
     if(backendConfigured()){
       const res = await apiCall('addPosting', {empId:drawerEmpId, designation, zone, section, start, end, seat});
       pstId = res.ok ? res.data.id : ("PST-"+Date.now());
+      if(res.ok && res.data && res.data.warning) pastRecordWarning = res.data.warning;
     } else { seq.pst++; pstId = "PST-"+pad(seq.pst); }
     postings.push({id:pstId, empId:drawerEmpId, designation, zone, section, start, end, seat});
     renumberPostingsByDate(drawerEmpId);
-    closeModal(); openDrawer(drawerEmpId); renderDirectory(); renderDashboard(); toast('Past record added to posting history.');
+    closeModal(); openDrawer(drawerEmpId); renderDirectory(); renderDashboard();
+    toast(pastRecordWarning ? `Past record added, but: ${pastRecordWarning}` : 'Past record added to posting history.');
     } finally { clearBtnLoading(btn); }
   });
 });
