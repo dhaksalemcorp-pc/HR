@@ -1936,11 +1936,27 @@ function readDeputationFromForm(){
 
 /* ---------------- Drawer ---------------- */
 let drawerEmpId = null;
-// Sort key for posting history: an explicit `order` if the admin has set one via the
-// reorder buttons, otherwise the start date's own timestamp — so untouched records sort
-// exactly as before (newest first) and only diverge once someone deliberately shuffles them.
+// Sort key for posting history: an explicit `order` when set, otherwise the start date's
+// own timestamp. `order` is ALWAYS kept as a clean small integer sequence (never a raw
+// timestamp) — see renumberPostingsByDate() — so it can never get mixed with date-derived
+// values in a way that produces an inconsistent, unpredictable display order.
 function effectiveOrderVal(p){
   return (p.order!=null && p.order!=='') ? Number(p.order) : new Date((p.start||'1970-01-01')+"T00:00:00").getTime();
+}
+// Re-sorts an employee's ENTIRE posting history by actual date and assigns a clean,
+// consecutive integer `order` to every entry (highest = most recent = displayed first).
+// Called every time a posting is added or its date changes, so a newly added record always
+// slots into its correct chronological position — and, as a side effect, self-heals any
+// previously inconsistent state (e.g. a stale manually-set order left over from testing)
+// instead of letting it silently mix with the new entry's raw date timestamp.
+function renumberPostingsByDate(empId){
+  const hist = postings.filter(p=>p.empId===empId)
+    .sort((a,b)=> new Date((b.start||'1970-01-01')+"T00:00:00") - new Date((a.start||'1970-01-01')+"T00:00:00"));
+  const n = hist.length;
+  hist.forEach((p,i)=>{
+    p.order = n-i;
+    if(backendConfigured()) persist('updatePosting', {id:p.id, fields:{order:p.order}});
+  });
 }
 function movePostingInHistory(empId, pid, direction){ // direction: -1 = up (more recent), +1 = down
   const hist = postings.filter(p=>p.empId===empId).sort((a,b)=> effectiveOrderVal(b) - effectiveOrderVal(a));
@@ -2129,6 +2145,7 @@ document.getElementById('btnAddEmployee').addEventListener('click', ()=>{
       pstId = pres.ok ? pres.data.id : ("PST-"+Date.now());
     } else { seq.pst++; pstId = "PST-"+pad(seq.pst); }
     postings.push({id:pstId, empId:id, designation, zone, section, start:doj, end:null, seat});
+    renumberPostingsByDate(id);
     closeModal(); renderDirectory(); renderDashboard(); toast(`${name} added as ${id}.`);
     } finally { clearBtnLoading(btn); }
   });
@@ -2251,6 +2268,7 @@ document.getElementById('btnTransfer').addEventListener('click', ()=>{
       pstId = res.ok ? res.data.id : ("PST-"+Date.now());
     } else { seq.pst++; pstId = "PST-"+pad(seq.pst); }
     postings.push({id:pstId, empId:drawerEmpId, designation, zone, section, start:date, end:null, seat});
+    renumberPostingsByDate(drawerEmpId);
     closeModal(); openDrawer(drawerEmpId); renderDirectory(); renderDashboard(); toast('Transfer recorded.');
     } finally { clearBtnLoading(btn); }
   });
@@ -2288,6 +2306,7 @@ document.getElementById('btnAddPastRecord').addEventListener('click', ()=>{
       pstId = res.ok ? res.data.id : ("PST-"+Date.now());
     } else { seq.pst++; pstId = "PST-"+pad(seq.pst); }
     postings.push({id:pstId, empId:drawerEmpId, designation, zone, section, start, end, seat});
+    renumberPostingsByDate(drawerEmpId);
     closeModal(); openDrawer(drawerEmpId); renderDirectory(); renderDashboard(); toast('Past record added to posting history.');
     } finally { clearBtnLoading(btn); }
   });
@@ -2346,6 +2365,7 @@ function openEditPosting(id){
     p.end = end || null;
     p.seat = SEAT_ELIGIBLE_DESIGNATIONS.includes(p.designation) ? document.getElementById('pe_seat').value.trim() : '';
     if(backendConfigured()) persist('updatePosting', {id:p.id, fields:{designation:p.designation, zone:p.zone, section:p.section, start:p.start, end:p.end||'', seat:p.seat}});
+    renumberPostingsByDate(p.empId);
     closeModal(); openDrawer(drawerEmpId); renderDirectory(); renderDashboard(); toast('Posting record updated.');
   });
 }
