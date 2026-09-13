@@ -273,21 +273,32 @@
   .view-toggle-btn:last-child{border-right:none;}
   .view-toggle-btn svg{width:17px; height:17px;}
   .view-toggle-btn.active{background:var(--blue); color:#fff;}
-  .card-gallery-group-label{font-size:11px; font-weight:700; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.04em; margin:22px 0 10px;}
-  .card-gallery-group-label:first-child{margin-top:0;}
+  .card-gallery-group-header{
+    display:flex; align-items:center; gap:8px; margin:22px 0 10px;
+    padding:6px 4px; border-radius:8px; cursor:pointer;
+  }
+  .card-gallery-group-header:hover{background:var(--bg);}
+  .card-gallery-group-header:first-child{margin-top:0;}
+  .group-chevron{
+    background:none; border:none; padding:2px; display:flex; align-items:center; justify-content:center;
+    color:var(--ink-faint); cursor:pointer; flex-shrink:0; transition:transform 0.15s;
+  }
+  .group-chevron svg{width:15px; height:15px;}
+  .group-chevron.open{transform:rotate(90deg);}
+  .card-gallery-group-label{font-size:11px; font-weight:700; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.04em;}
   .card-gallery-group-label.clickable{cursor:pointer;}
   .card-gallery-group-label.clickable:hover{color:var(--blue);}
   .card-gallery-group-label.active{color:var(--blue);}
   .card-gallery-group-label .clear-hint{font-weight:600; text-transform:none; letter-spacing:normal; margin-left:4px;}
-  .card-gallery-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:10px;}
+  .card-gallery-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px;}
   .emp-card{
-    background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px; text-align:center;
+    background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px; text-align:center;
     cursor:pointer;
   }
   .emp-card:hover{border-color:var(--blue);}
-  .emp-card .avatar, .emp-card .avatar-fallback{margin:0 auto 8px;}
-  .emp-card .nm{font-size:12.5px; font-weight:600; margin:0; line-height:1.3;}
-  .emp-card .idl{font-size:11px; color:var(--ink-faint); margin:2px 0 0;}
+  .emp-card .avatar, .emp-card .avatar-fallback{margin:0 auto 10px;}
+  .emp-card .nm{font-size:13.5px; font-weight:600; margin:0; line-height:1.3;}
+  .emp-card .idl{font-size:11.5px; color:var(--ink-faint); margin:3px 0 0;}
   .scope-chip{
     font-size:12.5px; font-weight:600; padding:7px 15px; border-radius:20px;
     border:1px solid var(--line); background:var(--surface); color:var(--ink-soft); cursor:pointer;
@@ -1585,6 +1596,12 @@ function renderDirectoryZoneChips(){
     btn.addEventListener('click', ()=>{ zoneFilterEl.value = btn.dataset.zoneChip; renderDirectory(); });
   });
 }
+// Which designation groups are expanded — starts empty (everything collapsed) so a large
+// roster opens as a lightweight, scannable list of section headers instead of rendering
+// every photo card for every group immediately. Cards for a group are only ever built into
+// the DOM once that group is actually expanded — collapsed groups cost almost nothing to
+// render, which is the real fix for "UI lags" with 100+ employees, not just a visual toggle.
+let expandedDesignationGroups = new Set();
 function renderDirectoryCards(rows){
   renderDirectoryZoneChips();
   const groups = {}; const order = [];
@@ -1600,28 +1617,47 @@ function renderDirectoryCards(rows){
   const body = document.getElementById('directoryCardBody');
   body.innerHTML = order.map(key=>{
     const label = key==='__none__' ? 'No active posting' : key;
-    const cards = groups[key].map(({e})=>`
+    const isExpanded = expandedDesignationGroups.has(key);
+    // Cards are only built into the HTML string when this group is actually expanded —
+    // a collapsed group never gets its card markup generated at all.
+    const cards = isExpanded ? groups[key].map(({e})=>`
       <div class="emp-card" data-emp="${e.id}">
-        ${avatarHtml(e, 48)}
+        ${avatarHtml(e, 72)}
         <p class="nm">${e.name}</p>
         <p class="idl mono">${e.id}</p>
-      </div>`).join('');
-    // Clicking a group label filters the card view down to just that designation, reusing
-    // the SAME shared desigFilterEl the table view and its dropdown already use — one filter
-    // state, same as the zone chips. Clicking the already-active group's label clears back
-    // to "all designations" instead of doing nothing.
+      </div>`).join('') : '';
+    // Clicking the LABEL TEXT filters the card view down to just that designation (reusing
+    // the SAME shared desigFilterEl the table view's dropdown uses). Clicking the CHEVRON
+    // expands/collapses the group without touching the filter — these are two independent
+    // actions living in the same header row.
     const clickable = key!=='__none__';
     const isActive = desigFilterEl.value===key;
-    const labelHtml = clickable
-      ? `<div class="card-gallery-group-label clickable ${isActive?'active':''}" data-desig-group="${key}">${label} · ${groups[key].length}${isActive?' <span class="clear-hint">✕ clear</span>':''}</div>`
-      : `<div class="card-gallery-group-label">${label} · ${groups[key].length}</div>`;
-    return labelHtml + `<div class="card-gallery-grid">${cards}</div>`;
+    const chevron = `<button class="group-chevron ${isExpanded?'open':''}" data-toggle-group="${key}" aria-label="Expand or collapse">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+    </button>`;
+    const labelText = clickable
+      ? `<span class="card-gallery-group-label clickable ${isActive?'active':''}" data-desig-group="${key}">${label} · ${groups[key].length}${isActive?' <span class="clear-hint">✕ clear</span>':''}</span>`
+      : `<span class="card-gallery-group-label">${label} · ${groups[key].length}</span>`;
+    const headerRow = `<div class="card-gallery-group-header">${chevron}${labelText}</div>`;
+    return headerRow + `<div class="card-gallery-grid">${cards}</div>`;
   }).join('') || '';
   body.querySelectorAll('[data-emp]').forEach(el=> el.addEventListener('click', ()=>openDrawer(el.dataset.emp)));
   body.querySelectorAll('[data-desig-group]').forEach(el=>{
     el.addEventListener('click', ()=>{
-      desigFilterEl.value = (desigFilterEl.value === el.dataset.desigGroup) ? '' : el.dataset.desigGroup;
+      const key = el.dataset.desigGroup;
+      const clearing = desigFilterEl.value === key;
+      desigFilterEl.value = clearing ? '' : key;
+      if(!clearing) expandedDesignationGroups.add(key); // show the group you just filtered to, not an empty collapsed header
       renderDirectory();
+    });
+  });
+  body.querySelectorAll('[data-toggle-group]').forEach(el=>{
+    el.addEventListener('click', (ev)=>{
+      ev.stopPropagation();
+      const key = el.dataset.toggleGroup;
+      if(expandedDesignationGroups.has(key)) expandedDesignationGroups.delete(key);
+      else expandedDesignationGroups.add(key);
+      renderDirectoryCards(rows);
     });
   });
 }
