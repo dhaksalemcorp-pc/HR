@@ -273,24 +273,59 @@
   .view-toggle-btn:last-child{border-right:none;}
   .view-toggle-btn svg{width:17px; height:17px;}
   .view-toggle-btn.active{background:var(--blue); color:#fff;}
-  .card-gallery-group-header{
-    display:flex; align-items:center; gap:8px; margin:22px 0 10px;
-    padding:6px 4px; border-radius:8px; cursor:pointer;
+  .group-card{
+    background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--section-accent, var(--blue));
+    border-radius:12px; margin-bottom:10px; overflow:hidden;
   }
-  .card-gallery-group-header:hover{background:var(--bg);}
-  .card-gallery-group-header:first-child{margin-top:0;}
-  .group-chevron{
-    background:none; border:none; padding:2px; display:flex; align-items:center; justify-content:center;
-    color:var(--ink-faint); cursor:pointer; flex-shrink:0; transition:transform 0.15s;
+  .group-head{display:flex; align-items:center; gap:14px; padding:14px 18px; cursor:pointer;}
+  .group-head:hover{background:var(--bg);}
+  .chev{color:var(--ink-faint); flex-shrink:0; transition:transform 0.15s;}
+  .chev svg{width:16px; height:16px;}
+  .group-card.open .chev{transform:rotate(90deg); color:var(--blue);}
+  .avatar-stack{display:flex; flex-shrink:0;}
+  .avatar-stack .avatar, .avatar-stack .avatar-fallback{
+    width:34px !important; height:34px !important; border:2px solid var(--surface); margin-left:-10px; font-size:11px !important;
   }
-  .group-chevron svg{width:15px; height:15px;}
-  .group-chevron.open{transform:rotate(90deg);}
-  .card-gallery-group-label{font-size:11px; font-weight:700; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.04em;}
+  .avatar-stack > *:first-child{margin-left:0;}
+  .avatar-stack-more{
+    width:34px; height:34px; border-radius:50%; background:var(--bg); color:var(--ink-faint); font-size:10.5px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; border:2px solid var(--surface); margin-left:-10px; flex-shrink:0;
+  }
+  .group-info{flex:1; min-width:0;}
+  .card-gallery-group-label{font-size:14px; font-weight:700; color:var(--ink);}
   .card-gallery-group-label.clickable{cursor:pointer;}
   .card-gallery-group-label.clickable:hover{color:var(--blue);}
   .card-gallery-group-label.active{color:var(--blue);}
-  .card-gallery-group-label .clear-hint{font-weight:600; text-transform:none; letter-spacing:normal; margin-left:4px;}
+  .card-gallery-group-label .clear-hint{font-weight:600; margin-left:4px; font-size:12px;}
+  .group-sub{font-size:12px; color:var(--ink-faint); margin:2px 0 0;}
+  .fill-wrap{display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0; width:150px;}
+  .fill-bar{width:100%; height:6px; border-radius:3px; background:var(--line); overflow:hidden;}
+  .fill-bar > div{height:100%;}
+  .fill-bar.sev-green > div{background:var(--green);}
+  .fill-bar.sev-orange > div{background:var(--orange);}
+  .fill-bar.sev-red > div{background:var(--red);}
+  .fill-label{font-size:11px; color:var(--ink-faint); white-space:nowrap;}
+  .fill-label.sev-green{color:var(--green);}
+  .fill-label.sev-orange{color:#9A6B00;}
+  .fill-label.sev-red{color:var(--red);}
+  .expanded-body{display:none;}
+  .group-card.open .expanded-body{display:block; border-top:1px solid var(--line); padding:16px 18px; background:var(--bg);}
   .card-gallery-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px;}
+  /* Dense table — deliberately the OPPOSITE of the card view's roomy, browsable feel: tight
+     rows, more columns visible at once, and a frozen Name column so it stays put while
+     scrolling sideways through the rest. This is the "compare many people at once" tool;
+     the card view is the "browse and get a feel for the roster" one. */
+  .dense-table{font-size:12.5px;}
+  .dense-table th{padding:8px 12px; font-size:10.5px; white-space:nowrap;}
+  .dense-table td{padding:7px 12px; white-space:nowrap;}
+  .dense-table th:first-child, .dense-table td.dense-name-cell{
+    position:sticky; left:0; background:var(--surface); z-index:1; border-right:1px solid var(--line);
+  }
+  .dense-table th:first-child{background:var(--bg); z-index:2;}
+  .dense-table tbody tr:hover td.dense-name-cell{background:var(--bg);}
+  .dense-table .row-name{display:flex; align-items:center; gap:8px;}
+  .dense-table .row-name .avatar, .dense-table .row-name .avatar-fallback{width:22px !important; height:22px !important; font-size:9px !important; flex-shrink:0;}
+  .dense-table .zone-pill{font-size:10.5px; background:var(--bg); color:var(--ink-faint); padding:2px 8px; border-radius:8px; white-space:nowrap;}
   .emp-card{
     background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px; text-align:center;
     cursor:pointer;
@@ -668,8 +703,8 @@
         </div>
         <div id="directoryTableView">
         <div class="card" style="overflow-x:auto;">
-        <table class="responsive-mobile">
-          <thead><tr><th></th><th>Emp ID</th><th>Name</th><th>Current designation</th><th>Zone / Section</th><th class="col-charge">Charge / Work Alloc.</th></tr></thead>
+        <table class="responsive-mobile dense-table">
+          <thead><tr><th>Name</th><th>Emp ID</th><th>Designation</th><th>Zone</th><th>Section</th><th>Category</th><th>Phone</th><th>Email</th><th>DOJ</th><th class="col-charge">Charge / Work Alloc.</th></tr></thead>
           <tbody id="directoryBody"></tbody>
         </table>
         </div>
@@ -1574,11 +1609,17 @@ function renderDirectoryTable(rows){
   const body = document.getElementById('directoryBody');
   body.innerHTML = rows.map(({e,p,ac})=>`
     <tr class="rowclick" data-emp="${e.id}">
-      <td data-label="">${avatarHtml(e)}</td>
+      <td data-label="Name" class="dense-name-cell">
+        <div class="row-name">${avatarHtml(e,26)}<b>${e.name}</b>${deputationPill(e)}</div>
+      </td>
       <td class="mono" data-label="Emp ID">${e.id}</td>
-      <td data-label="Name">${e.name}${deputationPill(e)}</td>
       <td data-label="Designation">${p ? p.designation : '<span class="pill gray">No active posting</span>'}</td>
-      <td data-label="Zone / Section">${p ? p.zone+' · '+p.section+(p.seat?' · Seat '+p.seat:'') : '—'}</td>
+      <td data-label="Zone">${p ? `<span class="zone-pill">${p.zone}</span>` : '—'}</td>
+      <td data-label="Section">${p ? p.section+(p.seat?' · Seat '+p.seat:'') : '—'}</td>
+      <td data-label="Category">${e.category||'—'}</td>
+      <td class="mono" data-label="Phone">${e.phone||'—'}</td>
+      <td data-label="Email">${e.email||'—'}</td>
+      <td data-label="DOJ">${fmtDate(e.doj)}</td>
       <td class="col-charge" data-label="Additional Charge">${ac.length ? ac.map(c=>`<span class="pill blue">${c.role}</span>`).join(' ') : '—'}</td>
     </tr>`).join('');
   body.querySelectorAll('tr.rowclick').forEach(tr=> tr.addEventListener('click', ()=>openDrawer(tr.dataset.emp)));
@@ -1602,6 +1643,26 @@ function renderDirectoryZoneChips(){
 // the DOM once that group is actually expanded — collapsed groups cost almost nothing to
 // render, which is the real fix for "UI lags" with 100+ employees, not just a visual toggle.
 let expandedDesignationGroups = new Set();
+// A fixed accent color per G.O. 152 section — purely a visual grouping cue, never used for
+// the vacancy severity color (that's a separate, deliberate design decision — see below).
+const SECTION_ACCENT_COLOR = {
+  "Commissioner's Office": '#D4453B',
+  'General Administration Section': '#2F5FE0',
+  'Public Health Section': '#00A87E',
+  'Engineering Section': '#7C5CFC',
+  'Town Planning Section': '#E08A2C',
+};
+// Vacancy severity by percentage vacant, NOT by raw headcount — a small design decision
+// that matters: a two-tone "filled vs total" bar makes everything look "mostly green" since
+// the filled portion usually dominates visually regardless of how bad the vacancy actually
+// is. Severity tiers give an immediate, honest read: green only when truly fully staffed,
+// red once vacancy crosses a real threshold — not just "some of this bar isn't green".
+function severityFor(sanctioned, filled){
+  if(sanctioned<=0) return null; // not covered by G.O. 152 — no sanctioned figure to compare against
+  const vacant = sanctioned - filled;
+  if(vacant<=0) return 'green'; // fully staffed, or in excess
+  return (vacant/sanctioned*100) <= 20 ? 'orange' : 'red';
+}
 function renderDirectoryCards(rows){
   renderDirectoryZoneChips();
   const groups = {}; const order = [];
@@ -1614,36 +1675,63 @@ function renderDirectoryCards(rows){
     if(a==='__none__') return 1; if(b==='__none__') return -1;
     return (GO152_ORDER[a]||9999) - (GO152_ORDER[b]||9999) || a.localeCompare(b);
   });
+  // Sanctioned/filled per designation, respecting whichever zone scope is currently active
+  // (a specific zone chip, or "All zones" aggregated) — the exact same source of truth the
+  // Vacancy tab itself uses, so the two screens can never disagree with each other.
+  const vacancyByDesig = new Map(getVacancyRows(zoneFilterEl.value || null).map(r=>[r.designation, r]));
   const body = document.getElementById('directoryCardBody');
   body.innerHTML = order.map(key=>{
     const label = key==='__none__' ? 'No active posting' : key;
     const isExpanded = expandedDesignationGroups.has(key);
-    // Cards are only built into the HTML string when this group is actually expanded —
-    // a collapsed group never gets its card markup generated at all.
-    const cards = isExpanded ? groups[key].map(({e})=>`
+    const members = groups[key];
+    const accent = SECTION_ACCENT_COLOR[GO152_SECTION[key]] || '';
+    const vac = vacancyByDesig.get(key);
+    const sev = vac ? severityFor(vac.sanctioned, vac.filled) : null;
+    let statHtml = '';
+    if(sev){
+      const pct = Math.min(100, Math.round(vac.filled/vac.sanctioned*100));
+      const vacantCount = vac.sanctioned - vac.filled;
+      const statText = vacantCount<=0
+        ? (vacantCount<0 ? `${vac.filled} / ${vac.sanctioned} · ${-vacantCount} excess` : `${vac.filled} / ${vac.sanctioned} · Fully staffed`)
+        : `${vac.filled} / ${vac.sanctioned} · ${vacantCount} vacant`;
+      statHtml = `<div class="fill-wrap">
+        <div class="fill-bar sev-${sev}"><div style="width:${pct}%"></div></div>
+        <div class="fill-label sev-${sev}">${statText}</div>
+      </div>`;
+    } else if(key!=='__none__') {
+      statHtml = `<div class="fill-wrap"><div class="fill-label" style="color:var(--ink-faint);">Not covered by G.O. 152</div></div>`;
+    }
+    // Avatar-stack preview: first 3 faces + a "+N" chip, visible even while collapsed — a
+    // glimpse of who's inside before you commit to expanding.
+    const previewAvatars = members.slice(0,3).map(({e})=>avatarHtml(e,34)).join('');
+    const moreCount = members.length>3 ? `<div class="avatar-stack-more">+${members.length-3}</div>` : '';
+    // Cards are only built into the HTML string when this group is actually expanded — a
+    // collapsed group never gets its card markup generated at all (the actual lag fix).
+    const cards = isExpanded ? members.map(({e})=>`
       <div class="emp-card" data-emp="${e.id}">
         ${avatarHtml(e, 72)}
         <p class="nm">${e.name}</p>
         <p class="idl mono">${e.id}</p>
       </div>`).join('') : '';
-    // Clicking the LABEL TEXT filters the card view down to just that designation (reusing
-    // the SAME shared desigFilterEl the table view's dropdown uses). Clicking the CHEVRON
-    // expands/collapses the group without touching the filter — these are two independent
-    // actions living in the same header row.
     const clickable = key!=='__none__';
     const isActive = desigFilterEl.value===key;
-    const chevron = `<button class="group-chevron ${isExpanded?'open':''}" data-toggle-group="${key}" aria-label="Expand or collapse">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-    </button>`;
     const labelText = clickable
-      ? `<span class="card-gallery-group-label clickable ${isActive?'active':''}" data-desig-group="${key}">${label} · ${groups[key].length}${isActive?' <span class="clear-hint">✕ clear</span>':''}</span>`
-      : `<span class="card-gallery-group-label">${label} · ${groups[key].length}</span>`;
-    const headerRow = `<div class="card-gallery-group-header">${chevron}${labelText}</div>`;
-    return headerRow + `<div class="card-gallery-grid">${cards}</div>`;
+      ? `<span class="card-gallery-group-label clickable ${isActive?'active':''}" data-desig-group="${key}">${label}${isActive?' <span class="clear-hint">✕ clear</span>':''}</span>`
+      : `<span class="card-gallery-group-label">${label}</span>`;
+    return `<div class="group-card ${isExpanded?'open':''}" style="${accent?`--section-accent:${accent};`:''}">
+      <div class="group-head" data-toggle-group="${key}">
+        <div class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></div>
+        <div class="avatar-stack">${previewAvatars}${moreCount}</div>
+        <div class="group-info">${labelText}<p class="group-sub">${members.length} ${members.length===1?'person':'people'}</p></div>
+        ${statHtml}
+      </div>
+      <div class="expanded-body"><div class="card-gallery-grid">${cards}</div></div>
+    </div>`;
   }).join('') || '';
   body.querySelectorAll('[data-emp]').forEach(el=> el.addEventListener('click', ()=>openDrawer(el.dataset.emp)));
   body.querySelectorAll('[data-desig-group]').forEach(el=>{
-    el.addEventListener('click', ()=>{
+    el.addEventListener('click', (ev)=>{
+      ev.stopPropagation();
       const key = el.dataset.desigGroup;
       const clearing = desigFilterEl.value === key;
       desigFilterEl.value = clearing ? '' : key;
@@ -1653,7 +1741,7 @@ function renderDirectoryCards(rows){
   });
   body.querySelectorAll('[data-toggle-group]').forEach(el=>{
     el.addEventListener('click', (ev)=>{
-      ev.stopPropagation();
+      if(ev.target.closest('[data-desig-group]')) return; // let the label's own handler own that click
       const key = el.dataset.toggleGroup;
       if(expandedDesignationGroups.has(key)) expandedDesignationGroups.delete(key);
       else expandedDesignationGroups.add(key);
