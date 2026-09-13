@@ -311,6 +311,17 @@
   .expanded-body{display:none;}
   .group-card.open .expanded-body{display:block; border-top:1px solid var(--line); padding:16px 18px; background:var(--bg);}
   .card-gallery-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px;}
+  .photo-zoom-overlay{
+    position:fixed; inset:0; background:rgba(11,28,51,0.85); z-index:300;
+    display:flex; align-items:center; justify-content:center; cursor:zoom-out; padding:24px;
+  }
+  .photo-zoom-overlay img{max-width:min(90vw,480px); max-height:80vh; border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,0.45); object-fit:contain;}
+  .photo-zoom-close{
+    position:absolute; top:20px; right:20px; width:38px; height:38px; border-radius:50%;
+    background:rgba(255,255,255,0.15); color:#fff; border:none; font-size:18px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .photo-zoom-close:hover{background:rgba(255,255,255,0.28);}
   /* Dense table — deliberately the OPPOSITE of the card view's roomy, browsable feel: tight
      rows, more columns visible at once, and a frozen Name column so it stays put while
      scrolling sideways through the rest. This is the "compare many people at once" tool;
@@ -522,6 +533,15 @@
     .hero-number{font-size:38px;}
     .col-map{grid-template-columns:1fr;}
     table:not(.responsive-mobile){font-size:12px;}
+    /* Card view group header — on narrow screens, a long designation name (e.g. "Junior
+       Assistant") wraps to 2 lines, which grows the row's height. Without this, the fill
+       bar (a flex sibling, vertically centered by default) stays centered on the OLD
+       single-line height and visually overlaps the second line of wrapped text. Wrapping
+       the row and forcing the fill bar onto its own full-width line below fixes this at
+       the source, instead of trying to cap text to one line and lose information. */
+    .group-head{flex-wrap:wrap; align-items:flex-start;}
+    .group-info{min-width:150px;}
+    .fill-wrap{width:100%; align-items:flex-start; margin-top:8px;}
   }
   @media (max-width:420px){
     .zone-grid2{grid-template-columns:1fr;}
@@ -2119,6 +2139,15 @@ function movePostingInHistory(empId, pid, direction){ // direction: -1 = up (mor
   if(backendConfigured()){ persist('updatePosting', {id:a.id, fields:{order:a.order}}); persist('updatePosting', {id:b.id, fields:{order:b.order}}); }
   openDrawer(empId); renderDirectory(); renderDashboard();
 }
+// Full-size photo viewer — click the small avatar in the drawer to see the actual photo,
+// not just the tiny circular thumbnail. Click anywhere (or the ✕) to dismiss.
+function openPhotoZoom(photoUrl, name){
+  const overlay = document.createElement('div');
+  overlay.className = 'photo-zoom-overlay';
+  overlay.innerHTML = `<button class="photo-zoom-close" aria-label="Close">✕</button><img src="${photoUrl}" alt="${name||'Employee photo'}">`;
+  overlay.addEventListener('click', ()=> overlay.remove());
+  document.body.appendChild(overlay);
+}
 function openDrawer(empId){
   try{
     drawerEmpId = empId;
@@ -2128,6 +2157,16 @@ function openDrawer(empId){
     const e = employees.find(x=>String(x.id)===String(empId));
     if(!e){ toast('Could not find that employee — try refreshing.'); console.error('openDrawer: no employee found for id', empId); return; }
     document.getElementById('drawerAvatarWrap').innerHTML = avatarHtml(e, 58);
+    // Clicking the photo opens a larger view — only meaningful when there's an actual
+    // photo to zoom into, not the plain initials fallback (nothing to see bigger there).
+    const avatarWrap = document.getElementById('drawerAvatarWrap');
+    if(e.photo){
+      avatarWrap.style.cursor = 'zoom-in';
+      avatarWrap.onclick = ()=> openPhotoZoom(e.photo, e.name);
+    } else {
+      avatarWrap.style.cursor = '';
+      avatarWrap.onclick = null;
+    }
     document.getElementById('drawerName').textContent = e.name;
     document.getElementById('drawerId').textContent = e.id;
     document.getElementById('drawerFields').innerHTML = `
