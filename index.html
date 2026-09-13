@@ -964,9 +964,9 @@
 <div class="modal-overlay" id="modalOverlay"><div class="modal" id="modalBody"></div></div>
 <div class="toast" id="toast"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
 <script>
 /* =================================================================
    DATA MODEL
@@ -1312,21 +1312,42 @@ async function doLogin(){
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPass').value;
   let match = null;
+  let backendUnreachable = false; // a genuine connectivity/server failure — NOT the same as "wrong password"
   const btn = document.getElementById('btnLogin');
+  const errEl = document.getElementById('loginError');
   setBtnLoading(btn, 'Signing in…');
   try{
     if(backendConfigured()){
       const res = await apiCall('login', {username:u, password:p});
       if(res.ok && res.data) match = res.data;
+      else if(!res.ok) backendUnreachable = true; // res.ok===true with data:null means "no such user" (wrong credentials) — a real login failure, not a connectivity one; only res.ok===false is a genuine reachability problem
+    }
+    if(backendUnreachable){
+      errEl.textContent = 'Could not reach the server — check your internet connection (or that the Apps Script Web App is still deployed) and try again.';
+      errEl.style.display='block';
+      return;
     }
     if(!match){
-      match = users.find(x=>x.username===u && x.password===p) || null; // local demo fallback
+      match = users.find(x=>x.username===u && x.password===p) || null; // local demo fallback — only when the backend genuinely isn't configured at all
     }
-    if(!match){ document.getElementById('loginError').style.display='block'; return; }
-    document.getElementById('loginError').style.display='none';
+    if(!match){ errEl.textContent = 'Incorrect username or password.'; errEl.style.display='block'; return; }
+    errEl.style.display='none';
     currentUser = match; drillZone = null;
 
-    if(backendConfigured()) await loadAllFromBackend();
+    if(backendConfigured()){
+      const loaded = await loadAllFromBackend();
+      if(!loaded){
+        // This is the actual bug that was reported: loadAllFromBackend() failing used to be
+        // silently ignored, leaving the app showing its tiny built-in demo dataset (8 people)
+        // with zero indication anything was wrong — exactly the "why is only limited data
+        // showing" symptom. Never let that happen invisibly again: refuse to proceed into
+        // the app with unloaded real data, and say so plainly.
+        currentUser = null;
+        errEl.textContent = 'Signed in, but could not load your data from the server. Check your connection and try signing in again.';
+        errEl.style.display='block';
+        return;
+      }
+    }
   } finally {
     clearBtnLoading(btn);
   }
@@ -3153,9 +3174,11 @@ document.getElementById('btnConfirmImport').addEventListener('click', async ()=>
   if(backendConfigured()){
     const res = await apiCall('bulkImportEmployees', { rows: rowsToImport.map(r=>({empId:r.empId||undefined, name:r.name, designation:r.designation, zone:r.zone, section:r.section, doj:r.doj, phone:r.phone, category:r.category})) });
     if(!res.ok){ toast('Bulk import failed to save to the server.'); return; }
-    await loadAllFromBackend(); // reload so IDs/postings match what the sheet actually saved
+    const reloaded = await loadAllFromBackend(); // reload so IDs/postings match what the sheet actually saved
     renderDirectory(); renderDashboard();
-    toast(`Import complete — ${res.data.added} added, ${res.data.updated} updated.`);
+    toast(reloaded
+      ? `Import complete — ${res.data.added} added, ${res.data.updated} updated.`
+      : `Import saved to the server (${res.data.added} added, ${res.data.updated} updated), but the screen could not refresh — reload the page to see the latest data.`);
     document.getElementById('csvText').value=''; goToImportStep(1);
     return;
   }
