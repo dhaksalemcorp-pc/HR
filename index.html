@@ -383,6 +383,12 @@
     color:var(--ink-soft); background:var(--bg); padding:7px 12px; margin:16px -20px 8px;
   }
   .list-section-header:first-child{margin-top:0;}
+  /* Card gallery reuses this same header style, but the Directory panel's container padding
+     isn't guaranteed to match the Dashboard's — so this scoped override uses safe, purely
+     positive spacing instead of the Dashboard's edge-to-edge negative-margin bleed trick,
+     which could otherwise misalign or overflow in a different padding context. */
+  #directoryCardBody .list-section-header{margin:20px 0 10px; border-radius:8px;}
+  #directoryCardBody .list-section-header:first-child{margin-top:0;}
   .waffle-block{margin-bottom:18px;}
   .waffle-block:last-child{margin-bottom:0;}
   .waffle-head{display:flex; justify-content:space-between; align-items:baseline; font-size:13px; margin-bottom:8px; gap:10px;}
@@ -984,9 +990,42 @@
 <div class="modal-overlay" id="modalOverlay"><div class="modal" id="modalBody"></div></div>
 <div class="toast" id="toast"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
+<script>
+// Export libraries (SheetJS/xlsx and jsPDF) are loaded on demand, only when Export is
+// actually clicked, not on every page load. xlsx.full.min.js alone is close to 1MB —
+// downloading it on every single login (most of which never touch Export) was a real,
+// measurable contributor to slow initial loads, confirmed against a real Network-tab
+// capture showing these static libraries as the dominant share of total page weight.
+const EXPORT_LIB_URLS = [
+  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js',
+];
+let _exportLibsPromise = null;
+function loadScriptTag(src){
+  return new Promise((resolve,reject)=>{
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = ()=>resolve();
+    s.onerror = ()=>reject(new Error('Failed to load '+src));
+    document.head.appendChild(s);
+  });
+}
+// Loads all three export libraries once (subsequent calls reuse the same in-flight or
+// already-resolved promise, so clicking Export twice never re-downloads anything). Returns
+// true on success, false if a library genuinely failed to load (e.g. offline).
+async function ensureExportLibsLoaded(){
+  if(typeof XLSX !== 'undefined' && typeof window.jspdf !== 'undefined') return true; // already loaded
+  if(!_exportLibsPromise){
+    _exportLibsPromise = Promise.all(EXPORT_LIB_URLS.map(loadScriptTag)).catch(err=>{
+      _exportLibsPromise = null; // allow retrying on a later click rather than staying permanently broken
+      throw err;
+    });
+  }
+  try{ await _exportLibsPromise; return true; }
+  catch(err){ console.error('Could not load export libraries:', err); return false; }
+}
+</script>
 <script>
 /* =================================================================
    DATA MODEL
@@ -1742,8 +1781,7 @@ function renderDirectoryCards(rows){
   // (a specific zone chip, or "All zones" aggregated) — the exact same source of truth the
   // Vacancy tab itself uses, so the two screens can never disagree with each other.
   const vacancyByDesig = new Map(getVacancyRows(zoneFilterEl.value || null).map(r=>[r.designation, r]));
-  const body = document.getElementById('directoryCardBody');
-  body.innerHTML = order.map(key=>{
+  function renderGroupCard(key){
     const label = key==='__none__' ? 'No active posting' : key;
     const isExpanded = expandedDesignationGroups.has(key);
     const members = groups[key];
@@ -1790,7 +1828,26 @@ function renderDirectoryCards(rows){
       </div>
       <div class="expanded-body"><div class="card-gallery-grid">${cards}</div></div>
     </div>`;
-  }).join('') || '';
+  }
+  // Group designation-cards under G.O. 152 section headers (Commissioner's Office, General
+  // Administration Section, etc.) — the same organisation the Dashboard and Vacancy tab
+  // already use, so a large roster reads as "departments containing ranks" instead of one
+  // long flat list of designations.
+  const body = document.getElementById('directoryCardBody');
+  let html = '';
+  GO152_SECTIONS_IN_ORDER.forEach(sec=>{
+    const keysInSection = order.filter(k=> k!=='__none__' && GO152_SECTION[k]===sec);
+    if(!keysInSection.length) return;
+    html += `<div class="list-section-header">${sec}</div>`;
+    html += keysInSection.map(renderGroupCard).join('');
+  });
+  const unmapped = order.filter(k=> k!=='__none__' && !GO152_SECTION[k]);
+  if(unmapped.length){
+    html += `<div class="list-section-header">Field / Support Staff</div>`;
+    html += unmapped.map(renderGroupCard).join('');
+  }
+  if(order.includes('__none__')) html += renderGroupCard('__none__');
+  body.innerHTML = html;
   body.querySelectorAll('[data-emp]').forEach(el=> el.addEventListener('click', ()=>openDrawer(el.dataset.emp)));
   body.querySelectorAll('[data-desig-group]').forEach(el=>{
     el.addEventListener('click', (ev)=>{
@@ -1847,9 +1904,10 @@ const EXPORT_COLUMNS_DEF = [
   {key:'email', label:'Email', get:(e,p,ac)=> e.email||''},
   {key:'native', label:'Native Location', get:(e,p,ac)=> e.native||''},
   {key:'deputation', label:'Deputation', get:(e,p,ac)=> e.deputation ? (e.deputation.type==='out'?'Deputed out to '+(e.deputation.org||''):'Deputed in from '+(e.deputation.org||'')) : ''},
+  {key:'photo', label:'Photo', isImage:true, get:(e,p,ac)=> ''}, // image-only column, PDF only — see PDF/Excel handlers below
 ];
 let exportColumnOrder = EXPORT_COLUMNS_DEF.map(c=>c.key);
-let exportColumnEnabled = Object.fromEntries(EXPORT_COLUMNS_DEF.map(c=>[c.key, true]));
+let exportColumnEnabled = Object.fromEntries(EXPORT_COLUMNS_DEF.map(c=>[c.key, c.key!=='photo']));
 
 function getExportRows(){
   const zf = document.getElementById('exp_zone').value;
@@ -1904,6 +1962,7 @@ function renderExportColumnList(){
   });
 }
 document.getElementById('btnOpenExport').addEventListener('click', ()=>{
+  ensureExportLibsLoaded(); // fire-and-forget — start loading now, so it's often already ready by the time Excel/PDF is actually clicked
   const vz = visibleZones();
   openModal(`
     <h3>Export Directory</h3>
@@ -1929,10 +1988,15 @@ document.getElementById('btnOpenExport').addEventListener('click', ()=>{
   ['exp_zone','exp_desig','exp_cat','exp_section'].forEach(id=>{
     document.getElementById(id).addEventListener('change', updateExportPreviewCount);
   });
-  document.getElementById('exportAsExcelBtn').addEventListener('click', ()=>{
-    if(typeof XLSX === 'undefined'){ toast('Excel library still loading — try again in a moment.'); return; }
+  document.getElementById('exportAsExcelBtn').addEventListener('click', async ()=>{
+    if(!(await ensureExportLibsLoaded())){ toast('Could not load the Excel export library — check your connection and try again.'); return; }
     const rows = getExportRows();
-    const activeCols = exportColumnOrder.filter(k=>exportColumnEnabled[k]).map(k=>EXPORT_COLUMNS_DEF.find(c=>c.key===k));
+    const allActiveCols = exportColumnOrder.filter(k=>exportColumnEnabled[k]).map(k=>EXPORT_COLUMNS_DEF.find(c=>c.key===k));
+    // Excel/XLSX cells can't embed actual photos through this library — the Photo column is
+    // a PDF-only feature. Silently including an empty "Photo" column in the spreadsheet
+    // would be confusing, so it's dropped here, with a clear note if someone had it enabled.
+    const hadPhotoCol = allActiveCols.some(c=>c.isImage);
+    const activeCols = allActiveCols.filter(c=>!c.isImage);
     if(!rows.length || !activeCols.length){ toast('No rows or no columns selected.'); return; }
     const data = rows.map(({e,p,ac})=>{
       const obj = {};
@@ -1944,27 +2008,45 @@ document.getElementById('btnOpenExport').addEventListener('click', ()=>{
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Employees');
     XLSX.writeFile(wb, `SCMC_Employee_Export_${scopeLabel().replace(/[^a-z0-9]+/gi,'_')}.xlsx`);
-    toast(`Exported ${data.length} rows to Excel.`);
+    toast(hadPhotoCol ? `Exported ${data.length} rows to Excel (Photo is a PDF-only column, so it was left out here).` : `Exported ${data.length} rows to Excel.`);
     closeModal();
   });
-  document.getElementById('exportAsPdfBtn').addEventListener('click', ()=>{
-    if(typeof window.jspdf === 'undefined'){ toast('PDF library still loading — try again in a moment.'); return; }
+  document.getElementById('exportAsPdfBtn').addEventListener('click', async ()=>{
+    if(!(await ensureExportLibsLoaded())){ toast('Could not load the PDF export library — check your connection and try again.'); return; }
     const { jsPDF } = window.jspdf;
     const rows = getExportRows();
     const activeCols = exportColumnOrder.filter(k=>exportColumnEnabled[k]).map(k=>EXPORT_COLUMNS_DEF.find(c=>c.key===k));
     if(!rows.length || !activeCols.length){ toast('No rows or no columns selected.'); return; }
+    const photoColIdx = activeCols.findIndex(c=>c.isImage);
     const doc = new jsPDF({ orientation: activeCols.length>5 ? 'landscape' : 'portrait' });
     doc.setFontSize(14); doc.text('SCMC Employee Directory Export', 14, 15);
     doc.setFontSize(9); doc.setTextColor(100);
     doc.text(`Scope: ${scopeLabel()}  ·  Generated ${new Date().toLocaleDateString('en-IN')}  ·  ${rows.length} employees`, 14, 21);
-    const body = rows.map(({e,p,ac})=> activeCols.map(c=> c.get(e,p,ac) || '—'));
+    const body = rows.map(({e,p,ac})=> activeCols.map(c=> c.isImage ? '' : (c.get(e,p,ac) || '—')));
     doc.autoTable({
       startY:26,
       head:[activeCols.map(c=>c.label)],
       body,
-      styles:{fontSize:8, cellPadding:2.2},
       headStyles:{fillColor:[47,95,224], textColor:255},
       alternateRowStyles:{fillColor:[247,249,252]},
+      // Row height needs room for a photo when that column is included — autoTable can't
+      // know this from the (empty) text alone, since the image is drawn separately below.
+      columnStyles: photoColIdx!==-1 ? { [photoColIdx]: { cellWidth: 16 } } : {},
+      styles: photoColIdx!==-1 ? {fontSize:8, cellPadding:2.2, minCellHeight:16} : {fontSize:8, cellPadding:2.2},
+      // Draws the actual employee photo into the Photo column's cell for each row that has
+      // one — jsPDF's addImage draws directly onto the page canvas at the cell's own
+      // position, which autoTable exposes via didDrawCell.
+      didDrawCell: (data)=>{
+        if(photoColIdx===-1 || data.column.index!==photoColIdx || data.section!=='body') return;
+        const rowEntry = rows[data.row.index];
+        const photo = rowEntry && rowEntry.e && rowEntry.e.photo;
+        if(!photo) return;
+        const size = Math.min(data.cell.height, data.cell.width) - 3;
+        const x = data.cell.x + (data.cell.width - size)/2;
+        const y = data.cell.y + (data.cell.height - size)/2;
+        try{ doc.addImage(photo, 'JPEG', x, y, size, size); }
+        catch(err){ /* a malformed/unsupported image format silently skips rather than breaking the whole export */ }
+      },
     });
     doc.save(`SCMC_Employee_Export_${scopeLabel().replace(/[^a-z0-9]+/gi,'_')}.pdf`);
     toast(`Exported ${rows.length} rows to PDF.`);
@@ -2925,8 +3007,8 @@ function buildVacancyExportSections(){
 }
 function vacancyExportRowCount(d){ return d.sections.reduce((s,g)=>s+g.rows.length,0) + d.fieldRowsOut.length; }
 
-document.getElementById('btnVacancyExportExcel').addEventListener('click', ()=>{
-  if(typeof XLSX === 'undefined'){ toast('Excel library still loading — try again in a moment.'); return; }
+document.getElementById('btnVacancyExportExcel').addEventListener('click', async ()=>{
+  if(!(await ensureExportLibsLoaded())){ toast('Could not load the Excel export library — check your connection and try again.'); return; }
   const d = buildVacancyExportSections();
   if(!vacancyExportRowCount(d)){ toast('No rows to export for the current scope.'); return; }
   const wb = XLSX.utils.book_new();
@@ -2970,8 +3052,8 @@ document.getElementById('btnVacancyExportExcel').addEventListener('click', ()=>{
   toast(`Exported ${vacancyExportRowCount(d)} rows to Excel.`);
 });
 
-document.getElementById('btnVacancyExportPDF').addEventListener('click', ()=>{
-  if(typeof window.jspdf === 'undefined'){ toast('PDF library still loading — try again in a moment.'); return; }
+document.getElementById('btnVacancyExportPDF').addEventListener('click', async ()=>{
+  if(!(await ensureExportLibsLoaded())){ toast('Could not load the PDF export library — check your connection and try again.'); return; }
   const { jsPDF } = window.jspdf;
   const d = buildVacancyExportSections();
   if(!vacancyExportRowCount(d)){ toast('No rows to export for the current scope.'); return; }
@@ -3100,8 +3182,8 @@ function buildRetirementExportRows(){
   }));
 }
 const RETIREMENT_HORIZON_LABEL = {1:'Within 1 Month', 3:'Within 3 Months', 12:'Within 1 Year'};
-document.getElementById('btnRetirementExportExcel').addEventListener('click', ()=>{
-  if(typeof XLSX === 'undefined'){ toast('Excel library still loading — try again in a moment.'); return; }
+document.getElementById('btnRetirementExportExcel').addEventListener('click', async ()=>{
+  if(!(await ensureExportLibsLoaded())){ toast('Could not load the Excel export library — check your connection and try again.'); return; }
   const data = buildRetirementExportRows();
   if(!data.length){ toast('No one retiring within this horizon.'); return; }
   const wb = XLSX.utils.book_new();
@@ -3119,8 +3201,8 @@ document.getElementById('btnRetirementExportExcel').addEventListener('click', ()
   XLSX.writeFile(wb, `SCMC_Retirement_${RETIREMENT_HORIZON_LABEL[retirementHorizon].replace(/[^a-z0-9]+/gi,'_')}.xlsx`);
   toast(`Exported ${data.length} rows to Excel.`);
 });
-document.getElementById('btnRetirementExportPDF').addEventListener('click', ()=>{
-  if(typeof window.jspdf === 'undefined'){ toast('PDF library still loading — try again in a moment.'); return; }
+document.getElementById('btnRetirementExportPDF').addEventListener('click', async ()=>{
+  if(!(await ensureExportLibsLoaded())){ toast('Could not load the PDF export library — check your connection and try again.'); return; }
   const { jsPDF } = window.jspdf;
   const data = buildRetirementExportRows();
   if(!data.length){ toast('No one retiring within this horizon.'); return; }
@@ -3329,7 +3411,7 @@ document.getElementById('btnAddUser').addEventListener('click', ()=>{
 });
 
 /* =================================================================
-   SETTINGS — admin-managed dropdown lists (Designations/Sections/Categories) 
+   SETTINGS — admin-managed dropdown lists (Designations/Sections/Categories)
 ==================================================================*/
 const LIST_STORE = { designation: () => DESIGNATIONS, section: () => SECTIONS, category: () => CATEGORIES, caste: () => CASTE_CATEGORIES };
 function listRowHtml(kind, item){
