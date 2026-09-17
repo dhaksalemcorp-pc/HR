@@ -2396,7 +2396,7 @@ document.getElementById('btnAddEmployee').addEventListener('click', ()=>{
     ${seatFieldHtml('f_seat', '', DESIGNATIONS[0])}
     <div class="field"><label>Zone</label><select id="f_zone" ${lockZone?'disabled':''}>${vz.map(z=>`<option>${z}</option>`).join('')}</select></div>
     <div class="field"><label>Section</label><select id="f_section">${SECTIONS.map(s=>`<option>${s}</option>`).join('')}</select></div>
-    <div class="field"><label>Date of joining</label><input type="date" id="f_doj"></div>
+    <div class="field"><label>Date of joining (optional)</label><input type="date" id="f_doj"></div>
     <div class="field"><label>Phone</label><input type="text" id="f_phone"></div>
     ${deputationFieldHtml(null)}
     <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="saveEmployee">Save employee</button></div>
@@ -2406,7 +2406,7 @@ document.getElementById('btnAddEmployee').addEventListener('click', ()=>{
   wireSeatFieldVisibility('f_desig', 'f_seat');
   document.getElementById('saveEmployee').addEventListener('click', async ()=>{
     const name=document.getElementById('f_name').value.trim(); const doj=document.getElementById('f_doj').value;
-    if(!name||!doj){ toast('Name and date of joining are required.'); return; }
+    if(!name){ toast('Name is required.'); return; }
     const enteredId = document.getElementById('f_empid').value.trim();
     if(!enteredId){ toast('Emp ID is required.'); return; }
     if(employees.some(e=>e.id===enteredId)){ toast(`Emp ID "${enteredId}" is already in use — choose a different one.`); return; }
