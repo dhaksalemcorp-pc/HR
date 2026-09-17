@@ -1024,11 +1024,16 @@ const INTERNAL_DESIGNATIONS = ["DBC Worker"];
 // following the deployment steps (Deploy > New deployment > Web app).
 // ---------------------------------------------------------------
 const API_BASE = "https://script.google.com/macros/s/AKfycbyILZi_PXWy35BwUoMUxT_4lsE8xsAHkKj3ptH02yd9A1pa_yKJqqEhckmwGE3crFNH/exec";
-async function apiCall(action, payload){
-  if(!API_BASE || API_BASE.indexOf('PASTE_YOUR')===0){
-    console.warn('API_BASE not configured — running in local-only demo mode. Action not persisted:', action);
-    return { ok:false, error:'not-configured' };
-  }
+// Actions safe to silently retry once on a network failure — read-only, so a duplicate
+// attempt can never cause a duplicate record. Mutating actions (addEmployee, updatePosting,
+// etc.) are deliberately NOT auto-retried: if the server actually completed the write but
+// the response was lost to the same network hiccup, blindly retrying could create a
+// duplicate record — a real data-integrity risk that isn't worth the convenience here.
+const SAFE_TO_RETRY_ACTIONS = new Set(['login','getAll']);
+// The actual fetch + retry logic, kept separate from the "is a backend even configured"
+// guard below so it can be exercised directly in tests against a mocked fetch(), without
+// needing to override API_BASE itself (a genuine constant, deliberately not reassignable).
+async function fetchWithRetry(action, payload, _isRetry){
   try{
     const res = await fetch(API_BASE, {
       method:'POST',
@@ -1042,8 +1047,24 @@ async function apiCall(action, payload){
     return json;
   }catch(err){
     console.error('Network error on '+action+':', err);
+    // A cold Apps Script instance often fails its very first request after sitting idle for
+    // a while, and a retry a moment later — once it's warmed up — typically succeeds. This
+    // automates exactly that, confirmed-working manual workaround for read-only calls. The
+    // short pause matters: an instant re-fetch is likely to hit the same still-cold
+    // instance, whereas waiting briefly mirrors the real gap in a manual retry.
+    if(!_isRetry && SAFE_TO_RETRY_ACTIONS.has(action)){
+      await new Promise(r=>setTimeout(r,1500));
+      return fetchWithRetry(action, payload, true);
+    }
     return { ok:false, error: String(err) };
   }
+}
+async function apiCall(action, payload){
+  if(!API_BASE || API_BASE.indexOf('PASTE_YOUR')===0){
+    console.warn('API_BASE not configured — running in local-only demo mode. Action not persisted:', action);
+    return { ok:false, error:'not-configured' };
+  }
+  return fetchWithRetry(action, payload);
 }
 // Fire-and-forget wrapper for mutations: keeps the UI instant (local state
 // already updated before this is called) while still persisting to the
