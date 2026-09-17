@@ -996,9 +996,10 @@ let SECTIONS = ["Commissioner's Office","Mayor Office","Deputy Mayor Office","Ge
 let CATEGORIES = ["Regular","Deputation","Temporary"];
 let CASTE_CATEGORIES = ["General/OC","BC","BCM","MBC/DNC","SC","SC(A)","ST","Other"];
 const RECRUITMENT_TYPES = ["Direct Recruit","Promotion"];
+const GENDER_OPTIONS = ["Male","Female","Transgender"];
 // Seat is only meaningful for these two designations (e.g. "C6", "E10 & E11") — every other
 // designation has no such named-seat concept, so the field only shows when relevant.
-const SEAT_ELIGIBLE_DESIGNATIONS = ["Junior Assistant","Assistant"];
+const SEAT_ELIGIBLE_DESIGNATIONS = ["Junior Assistant","Assistant","Driver"];
 function seatFieldHtml(fieldId, currentValue, currentDesignation){
   const show = SEAT_ELIGIBLE_DESIGNATIONS.includes(currentDesignation);
   return `<div class="field" id="${fieldId}_wrap" style="display:${show?'':'none'};"><label>Seat</label><input type="text" id="${fieldId}" value="${currentValue||''}" placeholder="e.g. C6"></div>`;
@@ -1309,7 +1310,7 @@ async function loadAllFromBackend(){
   const d = res.data;
   employees = d.employees.map(e=>({
     id:e.id, name:e.name, dob:e.dob||'', doj:e.doj||'', native:e.native||'', phone:e.phone||'', email:e.email||'',
-    category:e.category||'Regular', caste:e.caste||'', recruitmentType:e.recruitmentType||'', photo:e.photo||null,
+    category:e.category||'Regular', caste:e.caste||'', recruitmentType:e.recruitmentType||'', gender:e.gender||'', photo:e.photo||null,
     deputation: e.depType ? {type:e.depType, org:e.depOrg||''} : null
   }));
   postings = d.postings.map(p=>({ id:p.id, empId:p.empId, designation:p.designation, zone:p.zone, section:p.section, start:p.start, end:p.end||null, seat:p.seat||'', order:(p.order!==undefined && p.order!=='') ? Number(p.order) : null }));
@@ -1820,6 +1821,7 @@ const EXPORT_COLUMNS_DEF = [
   {key:'retirement', label:'Retirement Date', get:(e,p,ac)=> e.dob ? fmtDate(calcRetirementDate(e.dob)) : ''},
   {key:'caste', label:'Caste', get:(e,p,ac)=> e.caste||''},
   {key:'recruitment', label:'Recruitment', get:(e,p,ac)=> e.recruitmentType||''},
+  {key:'gender', label:'Gender', get:(e,p,ac)=> e.gender||''},
   {key:'phone', label:'Phone', get:(e,p,ac)=> e.phone||''},
   {key:'email', label:'Email', get:(e,p,ac)=> e.email||''},
   {key:'native', label:'Native Location', get:(e,p,ac)=> e.native||''},
@@ -2171,6 +2173,7 @@ function openDrawer(empId){
     document.getElementById('drawerId').textContent = e.id;
     document.getElementById('drawerFields').innerHTML = `
       <div><label>Category</label><span>${e.category||'—'}</span></div>
+      <div><label>Gender</label><span>${e.gender||'—'}</span></div>
       <div><label>Caste</label><span>${e.caste||'—'}</span></div>
       <div><label>Recruitment</label><span>${e.recruitmentType||'—'}</span></div>
       <div><label>Date of joining</label><span>${fmtDate(e.doj)}</span></div>
@@ -2284,6 +2287,7 @@ document.getElementById('btnAddEmployee').addEventListener('click', ()=>{
     <div class="field"><label>Date of birth</label><input type="date" id="f_dob"></div>
     <div class="field"><label>Caste</label><select id="f_caste">${CASTE_CATEGORIES.map(c=>`<option>${c}</option>`).join('')}</select></div>
     <div class="field"><label>Recruitment</label><select id="f_recruit">${RECRUITMENT_TYPES.map(r=>`<option>${r}</option>`).join('')}</select></div>
+    <div class="field"><label>Gender</label><select id="f_gender">${GENDER_OPTIONS.map(g=>`<option>${g}</option>`).join('')}</select></div>
     <div class="field"><label>Category</label><select id="f_cat">${CATEGORIES.map(c=>`<option>${c}</option>`).join('')}</select></div>
     <div class="field"><label>Designation</label><select id="f_desig">${DESIGNATIONS.map(d=>`<option>${d}</option>`).join('')}</select></div>
     ${seatFieldHtml('f_seat', '', DESIGNATIONS[0])}
@@ -2312,11 +2316,12 @@ document.getElementById('btnAddEmployee').addEventListener('click', ()=>{
     const dob = document.getElementById('f_dob').value;
     const caste = document.getElementById('f_caste').value;
     const recruitmentType = document.getElementById('f_recruit').value;
+    const gender = document.getElementById('f_gender').value;
     const photo = currentPhotoValue();
     let id;
     let warnings = [];
     if(backendConfigured()){
-      const res = await apiCall('addEmployee', {id:enteredId, name,dob,doj,native:"",phone,email:"",category,caste,recruitmentType,photo:photo||'',depType:dep?dep.type:'',depOrg:dep?dep.org:''});
+      const res = await apiCall('addEmployee', {id:enteredId, name,dob,doj,native:"",phone,email:"",category,caste,recruitmentType,gender,photo:photo||'',depType:dep?dep.type:'',depOrg:dep?dep.org:''});
       if(!res.ok){ toast(res.error || 'Could not save to server — try again.'); return; }
       id = res.data.id;
       if(res.data.warning) warnings.push(res.data.warning);
@@ -2325,7 +2330,7 @@ document.getElementById('btnAddEmployee').addEventListener('click', ()=>{
       const m = /^SCM-(\d+)$/.exec(id);
       if(m) seq.emp = Math.max(seq.emp, parseInt(m[1],10));
     }
-    employees.push({id,name,dob,doj,native:"",phone,email:"",category,caste,recruitmentType,photo,deputation:dep});
+    employees.push({id,name,dob,doj,native:"",phone,email:"",category,caste,recruitmentType,gender,photo,deputation:dep});
     const designation = document.getElementById('f_desig').value||'Unassigned';
     const zone = lockZone?currentUser.zone:document.getElementById('f_zone').value;
     const section = document.getElementById('f_section').value;
@@ -2356,6 +2361,7 @@ document.getElementById('btnEditEmployee').addEventListener('click', ()=>{
     <div class="field"><label>Category</label><select id="e_cat">${CATEGORIES.map(c=>`<option ${c===e.category?'selected':''}>${c}</option>`).join('')}</select></div>
     <div class="field"><label>Caste</label><select id="e_caste">${CASTE_CATEGORIES.map(c=>`<option ${c===e.caste?'selected':''}>${c}</option>`).join('')}</select></div>
     <div class="field"><label>Recruitment</label><select id="e_recruit">${RECRUITMENT_TYPES.map(r=>`<option ${r===e.recruitmentType?'selected':''}>${r}</option>`).join('')}</select></div>
+    <div class="field"><label>Gender</label><select id="e_gender">${GENDER_OPTIONS.map(g=>`<option ${g===e.gender?'selected':''}>${g}</option>`).join('')}</select></div>
     <div class="field"><label>Date of birth</label><input type="date" id="e_dob" value="${e.dob||''}"></div>
     <div class="hint" id="e_retirement_preview" style="margin-top:-6px;"></div>
     <div class="field"><label>Date of joining</label><input type="date" id="e_doj" value="${e.doj||''}"></div>
@@ -2388,7 +2394,7 @@ document.getElementById('btnEditEmployee').addEventListener('click', ()=>{
 
     e.name=document.getElementById('e_name').value.trim()||e.name;
     e.category=document.getElementById('e_cat').value; e.dob=document.getElementById('e_dob').value; e.doj=document.getElementById('e_doj').value;
-    e.caste=document.getElementById('e_caste').value; e.recruitmentType=document.getElementById('e_recruit').value;
+    e.caste=document.getElementById('e_caste').value; e.recruitmentType=document.getElementById('e_recruit').value; e.gender=document.getElementById('e_gender').value;
     e.native=document.getElementById('e_native').value; e.phone=document.getElementById('e_phone').value; e.email=document.getElementById('e_email').value;
     e.deputation = readDeputationFromForm();
     const newPhoto = currentPhotoValue();
@@ -2408,7 +2414,7 @@ document.getElementById('btnEditEmployee').addEventListener('click', ()=>{
     }
 
     if(backendConfigured()){
-      persist('updateEmployee', {id:oldId, fields:{id:newId, name:e.name, category:e.category, dob:e.dob, doj:e.doj, caste:e.caste, recruitmentType:e.recruitmentType, native:e.native, phone:e.phone, email:e.email, photo:e.photo||'', depType:e.deputation?e.deputation.type:'', depOrg:e.deputation?e.deputation.org:''}});
+      persist('updateEmployee', {id:oldId, fields:{id:newId, name:e.name, category:e.category, dob:e.dob, doj:e.doj, caste:e.caste, recruitmentType:e.recruitmentType, gender:e.gender, native:e.native, phone:e.phone, email:e.email, photo:e.photo||'', depType:e.deputation?e.deputation.type:'', depOrg:e.deputation?e.deputation.org:''}});
       if(idChanged) persist('renameEmpIdReferences', {oldId, newId});
     }
     closeModal(); openDrawer(e.id); renderDirectory(); toast(idChanged ? `Employee details updated and Emp ID changed to ${newId}.` : 'Employee details updated.');
