@@ -2555,6 +2555,12 @@ document.getElementById('btnTransfer').addEventListener('click', ()=>{
   wireSeatFieldVisibility('t_desig', 't_seat');
   document.getElementById('saveTransfer').addEventListener('click', async ()=>{
     const date=document.getElementById('t_date').value;
+    // Deliberately still required — this date doubles as the PREVIOUS posting's end date.
+    // Leaving it blank would leave that old posting's `end` empty, and this app treats an
+    // empty end date as "still the current posting" everywhere (vacancy counts, current-
+    // posting lookups) — so a blank transfer date would silently give this employee two
+    // simultaneous "active" postings. Unlike a plain start date, this one genuinely can't
+    // be safely optional.
     if(!date){ toast('Effective date is required.'); return; }
     const btn = document.getElementById('saveTransfer');
     setBtnLoading(btn, 'Saving…');
@@ -2588,7 +2594,7 @@ document.getElementById('btnAddPastRecord').addEventListener('click', ()=>{
     ${seatFieldHtml('pr_seat', '', DESIGNATIONS[0])}
     <div class="field"><label>Zone</label><select id="pr_zone" ${lockZone?'disabled':''}>${(lockZone?[currentUser.zone]:vz).map(z=>`<option>${z}</option>`).join('')}</select></div>
     <div class="field"><label>Section</label><select id="pr_section">${SECTIONS.map(s=>`<option>${s}</option>`).join('')}</select></div>
-    <div class="field"><label>Start date</label><input type="date" id="pr_start"></div>
+    <div class="field"><label>Start date (optional)</label><input type="date" id="pr_start"></div>
     <div class="field"><label>End date</label><input type="date" id="pr_end"></div>
     <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="savePastRecord">Save past record</button></div>
   `);
@@ -2596,8 +2602,12 @@ document.getElementById('btnAddPastRecord').addEventListener('click', ()=>{
   document.getElementById('savePastRecord').addEventListener('click', async ()=>{
     const start = document.getElementById('pr_start').value;
     const end = document.getElementById('pr_end').value;
-    if(!start || !end){ toast('Both start and end dates are required for a past record.'); return; }
-    if(end < start){ toast('End date must be on or after the start date.'); return; }
+    // End date is deliberately still required here, even though start is now optional. A
+    // blank end date means "still ongoing" everywhere else in this app — since this form is
+    // specifically for backfilling a posting that's ALREADY OVER, leaving end blank would
+    // make it look like a second simultaneously-active posting for this employee.
+    if(!end){ toast('End date is required for a past record — this form is for postings that have already ended.'); return; }
+    if(start && end < start){ toast('End date must be on or after the start date.'); return; }
     const btn = document.getElementById('savePastRecord');
     setBtnLoading(btn, 'Saving…');
     try{
@@ -2656,7 +2666,7 @@ function openEditPosting(id){
     ${seatFieldHtml('pe_seat', p.seat, p.designation)}
     <div class="field"><label>Zone</label><select id="pe_zone">${ZONES.map(z=>`<option ${p.zone===z?'selected':''}>${z}</option>`).join('')}</select></div>
     <div class="field"><label>Section</label><select id="pe_section">${SECTIONS.map(s=>`<option ${p.section===s?'selected':''}>${s}</option>`).join('')}</select></div>
-    <div class="field"><label>Start date</label><input type="date" id="pe_start" value="${p.start||''}"></div>
+    <div class="field"><label>Start date (optional)</label><input type="date" id="pe_start" value="${p.start||''}"></div>
     <div class="field"><label>End date (blank = current)</label><input type="date" id="pe_end" value="${p.end||''}"></div>
     <div class="modal-actions"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" id="savePostingEdit">Save</button></div>
   `);
@@ -2664,8 +2674,7 @@ function openEditPosting(id){
   document.getElementById('savePostingEdit').addEventListener('click', ()=>{
     const start = document.getElementById('pe_start').value;
     const end = document.getElementById('pe_end').value;
-    if(!start){ toast('Start date is required.'); return; }
-    if(end && end < start){ toast('End date must be on or after the start date.'); return; }
+    if(start && end && end < start){ toast('End date must be on or after the start date.'); return; }
     p.designation = document.getElementById('pe_desig').value;
     p.zone = document.getElementById('pe_zone').value;
     p.section = document.getElementById('pe_section').value;
